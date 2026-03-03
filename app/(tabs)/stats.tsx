@@ -8,7 +8,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useColors } from '@/hooks/use-colors';
+
 export default function StatsScreen() {
+    const colors = useColors();
+
     const weekData = [
         { day: 'T2', hours: 2, height: 40 },
         { day: 'T3', hours: 3, height: 60 },
@@ -20,41 +24,41 @@ export default function StatsScreen() {
     ];
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Thống kê</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Thống kê</Text>
                 </View>
 
                 {/* Overview Cards */}
                 <View style={styles.overviewContainer}>
                     <View style={[styles.overviewCard, styles.primaryCard]}>
                         <Ionicons name="time-outline" size={24} color="#fff" />
-                        <Text style={styles.overviewValue}>24h</Text>
-                        <Text style={styles.overviewLabel}>Tổng giờ học</Text>
+                        <Text style={styles.overviewValueWhite}>24h</Text>
+                        <Text style={styles.overviewLabelWhite}>Tổng giờ học</Text>
                     </View>
-                    <View style={styles.overviewCard}>
+                    <View style={[styles.overviewCard, { backgroundColor: colors.cardBg }]}>
                         <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
                         <Text style={[styles.overviewValue, { color: '#10B981' }]}>45</Text>
-                        <Text style={styles.overviewLabel}>Bài đã hoàn thành</Text>
+                        <Text style={[styles.overviewLabel, { color: colors.secondaryText }]}>Bài đã hoàn thành</Text>
                     </View>
-                    <View style={styles.overviewCard}>
+                    <View style={[styles.overviewCard, { backgroundColor: colors.cardBg }]}>
                         <Ionicons name="flame-outline" size={24} color="#F59E0B" />
                         <Text style={[styles.overviewValue, { color: '#F59E0B' }]}>7</Text>
-                        <Text style={styles.overviewLabel}>Ngày liên tiếp</Text>
+                        <Text style={[styles.overviewLabel, { color: colors.secondaryText }]}>Ngày liên tiếp</Text>
                     </View>
                 </View>
 
                 {/* Weekly Chart */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Thời gian học trong tuần</Text>
-                    <View style={styles.chartContainer}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Thời gian học trong tuần</Text>
+                    <View style={[styles.chartContainer, { backgroundColor: colors.cardBg }]}>
                         <View style={styles.chart}>
                             {weekData.map((item, index) => (
                                 <View key={index} style={styles.barContainer}>
                                     <View style={[styles.bar, { height: item.height }]} />
-                                    <Text style={styles.barLabel}>{item.day}</Text>
+                                    <Text style={[styles.barLabel, { color: colors.mutedText }]}>{item.day}</Text>
                                 </View>
                             ))}
                         </View>
@@ -63,7 +67,7 @@ export default function StatsScreen() {
 
                 {/* Subject Progress */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tiến độ theo môn</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Tiến độ theo môn</Text>
 
                     {[
                         { subject: 'Toán học', progress: 75, color: '#3B82F6' },
@@ -71,12 +75,12 @@ export default function StatsScreen() {
                         { subject: 'Vật lý', progress: 45, color: '#F59E0B' },
                         { subject: 'Hóa học', progress: 30, color: '#10B981' },
                     ].map((item, index) => (
-                        <View key={index} style={styles.progressItem}>
+                        <View key={index} style={[styles.progressItem, { backgroundColor: colors.cardBg }]}>
                             <View style={styles.progressHeader}>
-                                <Text style={styles.progressSubject}>{item.subject}</Text>
-                                <Text style={styles.progressPercent}>{item.progress}%</Text>
+                                <Text style={[styles.progressSubject, { color: colors.text }]}>{item.subject}</Text>
+                                <Text style={[styles.progressPercent, { color: item.color }]}>{item.progress}%</Text>
                             </View>
-                            <View style={styles.progressBarBg}>
+                            <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
                                 <View
                                     style={[
                                         styles.progressBar,
@@ -97,7 +101,6 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
     },
     header: {
         paddingHorizontal: 20,
@@ -106,7 +109,6 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#1a1a1a',
     },
     overviewContainer: {
         flexDirection: 'row',
@@ -116,7 +118,6 @@ const styles = StyleSheet.create({
     },
     overviewCard: {
         flex: 1,
-        backgroundColor: '#fff',
         borderRadius: 16,
         padding: 16,
         alignItems: 'center',
@@ -124,15 +125,24 @@ const styles = StyleSheet.create({
     primaryCard: {
         backgroundColor: '#3B82F6',
     },
-    overviewValue: {
+    overviewValueWhite: {
         fontSize: 24,
         fontWeight: '700',
         color: '#fff',
         marginVertical: 4,
     },
+    overviewLabelWhite: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.85)',
+        textAlign: 'center',
+    },
+    overviewValue: {
+        fontSize: 24,
+        fontWeight: '700',
+        marginVertical: 4,
+    },
     overviewLabel: {
         fontSize: 11,
-        color: '#666',
         textAlign: 'center',
     },
     section: {
@@ -142,11 +152,9 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1a1a1a',
         marginBottom: 16,
     },
     chartContainer: {
-        backgroundColor: '#fff',
         borderRadius: 16,
         padding: 20,
     },
@@ -167,10 +175,8 @@ const styles = StyleSheet.create({
     },
     barLabel: {
         fontSize: 12,
-        color: '#9CA3AF',
     },
     progressItem: {
-        backgroundColor: '#fff',
         borderRadius: 12,
         padding: 16,
         marginBottom: 12,
@@ -183,16 +189,13 @@ const styles = StyleSheet.create({
     progressSubject: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#1a1a1a',
     },
     progressPercent: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#3B82F6',
     },
     progressBarBg: {
         height: 8,
-        backgroundColor: '#E5E7EB',
         borderRadius: 4,
     },
     progressBar: {

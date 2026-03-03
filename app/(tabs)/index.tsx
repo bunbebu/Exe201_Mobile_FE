@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useColors } from '@/hooks/use-colors';
+
 interface QuickActionProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -18,41 +20,44 @@ interface QuickActionProps {
 }
 
 function QuickAction({ icon, label, color, bgColor }: QuickActionProps) {
+  const colors = useColors();
   return (
     <TouchableOpacity style={styles.quickAction}>
       <View style={[styles.quickActionIcon, { backgroundColor: bgColor }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <Text style={[styles.quickActionLabel, { color: colors.secondaryText }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
 export default function HomeScreen() {
+  const colors = useColors();
+
   const quickActions: QuickActionProps[] = [
-    { icon: 'book-outline', label: 'Môn học', color: '#3B82F6', bgColor: '#EBF5FF' },
-    { icon: 'clipboard-outline', label: 'Bài tập', color: '#F59E0B', bgColor: '#FEF3C7' },
-    { icon: 'checkbox-outline', label: 'Kiểm tra', color: '#10B981', bgColor: '#D1FAE5' },
-    { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: '#EDE9FE' },
+    { icon: 'book-outline', label: 'Môn học', color: '#3B82F6', bgColor: colors.qaBlueBg },
+    { icon: 'clipboard-outline', label: 'Bài tập', color: '#F59E0B', bgColor: colors.qaYellowBg },
+    { icon: 'checkbox-outline', label: 'Kiểm tra', color: '#10B981', bgColor: colors.qaGreenBg },
+    { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: colors.qaPurpleBg },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.headerBg }]}>
           <View style={styles.headerLeft}>
             <Image
               source={{ uri: 'https://kenh14cdn.com/203336854389633024/2021/1/3/5eaa8adf32978-1589277602636643044840-158953676924396578872-16096680352171545831444.jpeg' }}
               style={styles.avatar}
             />
             <View>
-              <Text style={styles.greeting}>Chào buổi sáng,</Text>
-              <Text style={styles.userName}>Nam! 👋</Text>
+              <Text style={[styles.greeting, { color: colors.secondaryText }]}>Chào buổi sáng,</Text>
+              <Text style={[styles.userName, { color: colors.text }]}>Nam! 👋</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications-outline" size={24} color="#1a1a1a" />
+          <TouchableOpacity style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}>
+            <Ionicons name="notifications-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -84,27 +89,27 @@ export default function HomeScreen() {
         {/* Next Lesson Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bài học tiếp theo</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Bài học tiếp theo</Text>
             <TouchableOpacity>
               <Text style={styles.seeAllText}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.lessonCard}>
+          <TouchableOpacity style={[styles.lessonCard, { backgroundColor: colors.cardBg }]}>
             <View style={styles.lessonIconContainer}>
               <Ionicons name="leaf" size={24} color="#10B981" />
             </View>
             <View style={styles.lessonInfo}>
-              <Text style={styles.lessonTitle}>Toán học - Lớp 9</Text>
-              <Text style={styles.lessonSubtitle}>Bài 4: Hệ thức Vi-ét</Text>
+              <Text style={[styles.lessonTitle, { color: colors.text }]}>Toán học - Lớp 9</Text>
+              <Text style={[styles.lessonSubtitle, { color: colors.secondaryText }]}>Bài 4: Hệ thức Vi-ét</Text>
               <View style={styles.lessonMeta}>
                 <View style={styles.lessonMetaItem}>
-                  <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-                  <Text style={styles.lessonMetaText}>45 phút</Text>
+                  <Ionicons name="time-outline" size={14} color={colors.mutedText} />
+                  <Text style={[styles.lessonMetaText, { color: colors.mutedText }]}>45 phút</Text>
                 </View>
                 <View style={styles.lessonMetaItem}>
                   <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={styles.lessonMetaText}>Cơ bản</Text>
+                  <Text style={[styles.lessonMetaText, { color: colors.mutedText }]}>Cơ bản</Text>
                 </View>
               </View>
             </View>
@@ -116,27 +121,27 @@ export default function HomeScreen() {
 
         {/* Suggestions Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gợi ý cho bạn</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Gợi ý cho bạn</Text>
 
           <View style={styles.suggestionsContainer}>
             {/* Tip Card */}
-            <TouchableOpacity style={[styles.suggestionCard, styles.tipCard]}>
-              <View style={styles.suggestionIconContainer}>
+            <TouchableOpacity style={[styles.suggestionCard, { backgroundColor: colors.tipCardBg }]}>
+              <View style={[styles.suggestionIconContainer, { backgroundColor: colors.surface }]}>
                 <Ionicons name="bulb" size={24} color="#F59E0B" />
               </View>
-              <Text style={styles.suggestionTitle}>Mẹo ghi nhớ</Text>
-              <Text style={styles.suggestionDescription}>
+              <Text style={[styles.suggestionTitle, { color: colors.text }]}>Mẹo ghi nhớ</Text>
+              <Text style={[styles.suggestionDescription, { color: colors.secondaryText }]}>
                 5 cách giúp bạn nhớ lâu hơn khi ôn tập...
               </Text>
             </TouchableOpacity>
 
             {/* Challenge Card */}
-            <TouchableOpacity style={[styles.suggestionCard, styles.challengeCard]}>
-              <View style={[styles.suggestionIconContainer, styles.challengeIcon]}>
+            <TouchableOpacity style={[styles.suggestionCard, { backgroundColor: colors.challengeCardBg }]}>
+              <View style={[styles.suggestionIconContainer, { backgroundColor: colors.surface }]}>
                 <Ionicons name="trophy" size={24} color="#8B5CF6" />
               </View>
-              <Text style={styles.suggestionTitle}>Thử thách</Text>
-              <Text style={styles.suggestionDescription}>
+              <Text style={[styles.suggestionTitle, { color: colors.text }]}>Thử thách</Text>
+              <Text style={[styles.suggestionDescription, { color: colors.secondaryText }]}>
                 Hoàn thành 3 bài tập Tiếng Anh ngay!
               </Text>
             </TouchableOpacity>
@@ -153,7 +158,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
@@ -161,7 +165,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -177,18 +180,15 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 14,
-    color: '#666',
   },
   userName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a1a1a',
   },
   notificationBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -263,7 +263,6 @@ const styles = StyleSheet.create({
   },
   quickActionLabel: {
     fontSize: 12,
-    color: '#666',
     fontWeight: '500',
   },
   section: {
@@ -279,7 +278,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1a1a1a',
   },
   seeAllText: {
     fontSize: 14,
@@ -290,7 +288,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -313,12 +310,10 @@ const styles = StyleSheet.create({
   lessonTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
     marginBottom: 2,
   },
   lessonSubtitle: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 6,
   },
   lessonMeta: {
@@ -332,7 +327,6 @@ const styles = StyleSheet.create({
   },
   lessonMetaText: {
     fontSize: 12,
-    color: '#9CA3AF',
   },
   playButton: {
     width: 40,
@@ -352,33 +346,21 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
   },
-  tipCard: {
-    backgroundColor: '#FEF3C7',
-  },
-  challengeCard: {
-    backgroundColor: '#EDE9FE',
-  },
   suggestionIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  challengeIcon: {
-    backgroundColor: '#fff',
-  },
   suggestionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
     marginBottom: 4,
   },
   suggestionDescription: {
     fontSize: 13,
-    color: '#666',
     lineHeight: 18,
   },
 });

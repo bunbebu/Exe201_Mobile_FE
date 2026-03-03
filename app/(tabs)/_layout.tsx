@@ -1,21 +1,33 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useColors } from "@/hooks/use-colors";
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
 
   return (
-    <View style={[styles.tabBar, { paddingBottom: insets.bottom || 10 }]}>
+    <View
+      style={[
+        styles.tabBar,
+        {
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.tabBarBorder,
+          paddingBottom: insets.bottom || 10,
+        },
+      ]}
+    >
       {state.routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
 
         const onPress = () => {
           const event = navigation.emit({
-            type: 'tabPress',
+            type: "tabPress",
             target: route.key,
             canPreventDefault: true,
           });
@@ -26,7 +38,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         };
 
         // Center button (Add)
-        if (route.name === 'add') {
+        if (route.name === "add") {
           return (
             <TouchableOpacity
               key={route.key}
@@ -40,20 +52,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           );
         }
 
-        let iconName: keyof typeof Ionicons.glyphMap = 'home';
+        let iconName: keyof typeof Ionicons.glyphMap = "home";
 
         switch (route.name) {
-          case 'index':
-            iconName = isFocused ? 'home' : 'home-outline';
+          case "index":
+            iconName = isFocused ? "home" : "home-outline";
             break;
-          case 'explore':
-            iconName = isFocused ? 'compass' : 'compass-outline';
+          case "explore":
+            iconName = isFocused ? "compass" : "compass-outline";
             break;
-          case 'stats':
-            iconName = isFocused ? 'stats-chart' : 'stats-chart-outline';
+          case "stats":
+            iconName = isFocused ? "stats-chart" : "stats-chart-outline";
             break;
-          case 'profile':
-            iconName = isFocused ? 'person' : 'person-outline';
+          case "profile":
+            iconName = isFocused ? "person" : "person-outline";
             break;
         }
 
@@ -66,7 +78,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             <Ionicons
               name={iconName}
               size={24}
-              color={isFocused ? '#3B82F6' : '#9CA3AF'}
+              color={isFocused ? colors.tint : colors.tabIconDefault}
             />
           </TouchableOpacity>
         );
@@ -94,32 +106,30 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+    flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
     paddingTop: 8,
   },
   tabItem: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
   },
   addButtonContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   addButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#3B82F6",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: -20,
-    shadowColor: '#3B82F6',
+    shadowColor: "#3B82F6",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
