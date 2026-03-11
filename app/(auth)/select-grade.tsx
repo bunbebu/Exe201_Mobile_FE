@@ -8,9 +8,14 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 
-type GradeType = 6 | 7 | 8 | 9 | 10 | 11 | 12;
+import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from '@/config/api';
+
+type GradeType = 9 | 10 | 11 | 12;
 
 interface GradeOption {
     grade: GradeType;
@@ -19,20 +24,56 @@ interface GradeOption {
 
 export default function SelectGrade() {
     const [selectedGrade, setSelectedGrade] = useState<GradeType | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const { tokens, onboardingGoals, setOnboardingGrade, markOnboardingCompleted } = useAuth();
 
     const grades: GradeOption[] = [
-        { grade: 6, label: 'Lớp 6' },
-        { grade: 7, label: 'Lớp 7' },
-        { grade: 8, label: 'Lớp 8' },
         { grade: 9, label: 'Lớp 9' },
         { grade: 10, label: 'Lớp 10' },
         { grade: 11, label: 'Lớp 11' },
         { grade: 12, label: 'Lớp 12' },
     ];
 
-    const handleContinue = () => {
-        // Complete onboarding - go to main app
-        router.replace('/(tabs)');
+    const handleContinue = async () => {
+        if (!selectedGrade) return;
+        if (!tokens?.accessToken) {
+            Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.');
+            router.replace('/(auth)/login');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            // Gọi API onboarding student profile
+            // Dựa theo swagger: POST /api/v1/student-profiles/onboarding (CompleteOnboardingDto)
+            // Body cụ thể có thể cần tinh chỉnh lại theo backend thực tế.
+            await fetch(`${API_BASE_URL}/api/v1/student-profiles/onboarding`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${tokens.accessToken}`,
+                },
+                body: JSON.stringify({
+                    gradeLevel: selectedGrade,
+                    goals: onboardingGoals,
+                }),
+            });
+
+            // Lưu grade vào context (client)
+            setOnboardingGrade(selectedGrade);
+            await markOnboardingCompleted();
+
+            // Chuyển sang Dashboard (tabs)
+            router.replace('/(tabs)');
+        } catch (error: any) {
+            Alert.alert(
+                'Không thể hoàn tất cấu hình',
+                error?.message ?? 'Đã có lỗi xảy ra, vui lòng thử lại.'
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -106,13 +147,19 @@ export default function SelectGrade() {
                 <TouchableOpacity
                     style={[
                         styles.continueButton,
-                        !selectedGrade && styles.continueButtonDisabled,
+                        (!selectedGrade || isSubmitting) && styles.continueButtonDisabled,
                     ]}
                     onPress={handleContinue}
-                    disabled={!selectedGrade}
+                    disabled={!selectedGrade || isSubmitting}
                 >
-                    <Text style={styles.continueButtonText}>Tiếp tục</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    {isSubmitting ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <>
+                            <Text style={styles.continueButtonText}>Tiếp tục</Text>
+                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>

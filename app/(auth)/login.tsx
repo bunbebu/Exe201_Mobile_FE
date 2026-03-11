@@ -11,16 +11,36 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { useAuth } from '@/context/AuthContext';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    const handleLogin = () => {
-        // Handle login logic here
-        router.replace('/(tabs)');
+    const { loginWithEmail, loginWithGoogle, loginWithFacebook, isLoading } = useAuth();
+
+    const handleLogin = async () => {
+        try {
+            if (!email || !password) {
+                Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ email và mật khẩu.');
+                return;
+            }
+
+            await loginWithEmail({ email, password });
+            // Sau khi đăng nhập thành công, chuyển sang bước cá nhân hóa
+            router.replace('/(auth)/personalize');
+        } catch (error: any) {
+            Alert.alert(
+                'Đăng nhập thất bại',
+                error?.message ?? 'Vui lòng kiểm tra lại thông tin đăng nhập.'
+            );
+        }
     };
 
     return (
@@ -112,8 +132,16 @@ export default function Login() {
                         </TouchableOpacity>
 
                         {/* Login button */}
-                        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                            <Text style={styles.loginButtonText}>Đăng nhập</Text>
+                        <TouchableOpacity
+                            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+                            onPress={handleLogin}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.loginButtonText}>Đăng nhập</Text>
+                            )}
                         </TouchableOpacity>
 
                         {/* Social login divider */}
@@ -125,11 +153,48 @@ export default function Login() {
 
                         {/* Social buttons */}
                         <View style={styles.socialContainer}>
-                            <TouchableOpacity style={styles.socialButton}>
+                            <TouchableOpacity
+                                style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
+                                onPress={async () => {
+                                    try {
+                                        await loginWithGoogle();
+                                        // If we get here without error and no token, it means we need to complete profile
+                                        // Check if we have completion token
+                                        const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
+                                        if (completionToken) {
+                                            router.push('/(auth)/complete-oauth');
+                                        }
+                                    } catch (error: any) {
+                                        Alert.alert(
+                                            'Đăng nhập thất bại',
+                                            error?.message ?? 'Đăng nhập với Google thất bại. Vui lòng thử lại.'
+                                        );
+                                    }
+                                }}
+                                disabled={isLoading}
+                            >
                                 <Ionicons name="logo-google" size={20} color="#1a1a1a" />
                                 <Text style={styles.socialButtonText}>Google</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.socialButton}>
+                            <TouchableOpacity
+                                style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
+                                onPress={async () => {
+                                    try {
+                                        await loginWithFacebook();
+                                        // If we get here without error and no token, it means we need to complete profile
+                                        const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
+                                        if (completionToken) {
+                                            router.push('/(auth)/complete-oauth');
+                                        }
+                                    } catch (error: any) {
+                                        Alert.alert(
+                                            'Đăng nhập thất bại',
+                                            error?.message ?? 'Đăng nhập với Facebook thất bại. Vui lòng thử lại.'
+                                        );
+                                    }
+                                }}
+                                disabled={isLoading}
+                            >
                                 <Ionicons name="logo-facebook" size={20} color="#1877F2" />
                                 <Text style={styles.socialButtonText}>Facebook</Text>
                             </TouchableOpacity>
@@ -269,6 +334,9 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         alignItems: 'center',
     },
+    loginButtonDisabled: {
+        backgroundColor: '#93C5FD',
+    },
     loginButtonText: {
         color: '#fff',
         fontSize: 16,
@@ -304,6 +372,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E5E7EB',
         backgroundColor: '#fff',
+    },
+    socialButtonDisabled: {
+        opacity: 0.5,
     },
     socialButtonText: {
         fontSize: 14,

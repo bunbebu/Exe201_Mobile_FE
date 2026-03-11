@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView,
     ScrollView,
@@ -9,6 +9,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+
+import { useAuth } from '@/context/AuthContext';
 
 type LevelType = 'cap1' | 'cap2' | 'cap3';
 type GoalType = 'lay-lai-goc' | 'hoc-nang-cao' | 'on-thi-thpt' | 'luyen-thi-10';
@@ -30,6 +32,15 @@ export default function Personalize() {
     const [selectedLevel, setSelectedLevel] = useState<LevelType | null>(null);
     const [selectedGoals, setSelectedGoals] = useState<GoalType[]>([]);
 
+    const { onboardingGoals, setOnboardingGoals } = useAuth();
+
+    // Khôi phục goals đã chọn nếu user quay lại màn hình này
+    useEffect(() => {
+        if (onboardingGoals.length > 0) {
+            setSelectedGoals(onboardingGoals as GoalType[]);
+        }
+    }, [onboardingGoals]);
+
     const levels: LevelOption[] = [
         { id: 'cap1', label: 'Cấp 1', sublabel: 'Lớp 1 - 5', icon: 'school-outline' },
         { id: 'cap2', label: 'Cấp 2', sublabel: 'Lớp 6 - 9', icon: 'person-outline' },
@@ -44,15 +55,18 @@ export default function Personalize() {
     ];
 
     const toggleGoal = (goalId: GoalType) => {
-        if (selectedGoals.includes(goalId)) {
-            setSelectedGoals(selectedGoals.filter((g) => g !== goalId));
-        } else {
-            setSelectedGoals([...selectedGoals, goalId]);
-        }
+        setSelectedGoals((prev) => {
+            if (prev.includes(goalId)) {
+                return prev.filter((g) => g !== goalId);
+            }
+            return [...prev, goalId];
+        });
     };
 
     const handleStart = () => {
-        // Navigate to grade selection
+        // Lưu mục tiêu học tập vào AuthContext (client state)
+        setOnboardingGoals(selectedGoals as any);
+        // Chọn khối lớp chi tiết (9-12) ở màn select-grade
         router.push('/(auth)/select-grade');
     };
 

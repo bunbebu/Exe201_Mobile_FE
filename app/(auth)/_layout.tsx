@@ -10,6 +10,7 @@ export default function AuthLayout() {
             <Stack.Screen name="verify-otp" />
             <Stack.Screen name="personalize" />
             <Stack.Screen name="select-grade" />
+            <Stack.Screen name="complete-oauth" />
         </Stack>
     );
 }
