@@ -62,10 +62,9 @@ export default function SelectGrade() {
 
             // Lưu grade vào context (client)
             setOnboardingGrade(selectedGrade);
-            await markOnboardingCompleted();
 
-            // Chuyển sang Dashboard (tabs)
-            router.replace('/(tabs)');
+            // Chuyển sang màn hình cập nhật profile
+            router.replace('/(auth)/update-profile');
         } catch (error: any) {
             Alert.alert(
                 'Không thể hoàn tất cấu hình',

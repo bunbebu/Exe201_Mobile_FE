@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
@@ -11,10 +14,7 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    ActivityIndicator,
-    Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '@/context/AuthContext';
 
@@ -23,19 +23,65 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    const { loginWithEmail, loginWithGoogle, loginWithFacebook, isLoading } = useAuth();
+    const { loginWithEmail, loginWithGoogle, loginWithFacebook, isLoading, isAuthenticated, onboardingCompleted } = useAuth();
+
+    // Auto redirect sau khi login thành công
+    useEffect(() => {
+        console.log('[LOGIN] useEffect triggered:', {
+            isAuthenticated,
+            onboardingCompleted,
+            isLoading,
+        });
+        
+        if (isAuthenticated && !isLoading) {
+            console.log('[LOGIN] Ready to redirect. Onboarding completed:', onboardingCompleted);
+            if (onboardingCompleted) {
+                console.log('[LOGIN] Redirecting to /dashboard');
+                router.replace('/dashboard');
+            } else {
+                console.log('[LOGIN] Redirecting to /(auth)/personalize');
+                router.replace('/(auth)/personalize');
+            }
+        }
+    }, [isAuthenticated, onboardingCompleted, isLoading]);
 
     const handleLogin = async () => {
         try {
+            console.log('[LOGIN] handleLogin called');
             if (!email || !password) {
                 Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ email và mật khẩu.');
                 return;
             }
 
+            console.log('[LOGIN] Calling loginWithEmail...');
             await loginWithEmail({ email, password });
-            // Sau khi đăng nhập thành công, chuyển sang bước cá nhân hóa
-            router.replace('/(auth)/personalize');
+            console.log('[LOGIN] loginWithEmail completed successfully');
+            
+            // Wait a bit for state to update
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check onboarding status và redirect
+            const onboardingStatus = await AsyncStorage.getItem('@edutech/onboardingCompleted');
+            console.log('[LOGIN] After loginWithEmail - Onboarding status from storage:', onboardingStatus);
+            console.log('[LOGIN] After loginWithEmail - Current auth state from hook:', {
+                isAuthenticated,
+                onboardingCompleted: onboardingCompleted,
+                isLoading,
+            });
+            
+            // Check onboarding status và redirect
+            const onboardingCompletedFromStorage = await AsyncStorage.getItem('@edutech/onboardingCompleted');
+            console.log('[LOGIN] Onboarding status from storage:', onboardingCompletedFromStorage);
+            
+            if (onboardingCompletedFromStorage === 'true') {
+                console.log('[LOGIN] Redirecting to /dashboard (from handleLogin)');
+                router.replace('/dashboard');
+            } else {
+                console.log('[LOGIN] Redirecting to /(auth)/personalize (from handleLogin)');
+                router.replace('/(auth)/personalize');
+            }
         } catch (error: any) {
+            console.error('[LOGIN] Error in handleLogin:', error);
             Alert.alert(
                 'Đăng nhập thất bại',
                 error?.message ?? 'Vui lòng kiểm tra lại thông tin đăng nhập.'
@@ -127,7 +173,10 @@ export default function Login() {
                         </View>
 
                         {/* Forgot password */}
-                        <TouchableOpacity style={styles.forgotPassword}>
+                        <TouchableOpacity
+                            style={styles.forgotPassword}
+                            onPress={() => router.push('/(auth)/forgot-password')}
+                        >
                             <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
                         </TouchableOpacity>
 
@@ -157,14 +206,31 @@ export default function Login() {
                                 style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
                                 onPress={async () => {
                                     try {
+                                        console.log('[LOGIN] Google login button pressed');
                                         await loginWithGoogle();
-                                        // If we get here without error and no token, it means we need to complete profile
-                                        // Check if we have completion token
+                                        console.log('[LOGIN] Google login completed');
+                                        
+                                        // Check completion token (lần đầu đăng ký)
                                         const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
+                                        console.log('[LOGIN] Google - Completion token:', completionToken);
                                         if (completionToken) {
-                                            router.push('/(auth)/complete-oauth');
+                                            console.log('[LOGIN] Google - Redirecting to complete-oauth');
+                                            router.replace('/(auth)/complete-oauth');
+                                            return;
+                                        }
+                                        
+                                        // Check onboarding status và redirect
+                                        const onboardingCompleted = await AsyncStorage.getItem('@edutech/onboardingCompleted');
+                                        console.log('[LOGIN] Google - Onboarding status:', onboardingCompleted);
+                                        if (onboardingCompleted === 'true') {
+                                            console.log('[LOGIN] Google - Redirecting to /dashboard');
+                                            router.replace('/dashboard');
+                                        } else {
+                                            console.log('[LOGIN] Google - Redirecting to /(auth)/personalize');
+                                            router.replace('/(auth)/personalize');
                                         }
                                     } catch (error: any) {
+                                        console.error('[LOGIN] Google login error:', error);
                                         Alert.alert(
                                             'Đăng nhập thất bại',
                                             error?.message ?? 'Đăng nhập với Google thất bại. Vui lòng thử lại.'
@@ -180,13 +246,31 @@ export default function Login() {
                                 style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
                                 onPress={async () => {
                                     try {
+                                        console.log('[LOGIN] Facebook login button pressed');
                                         await loginWithFacebook();
-                                        // If we get here without error and no token, it means we need to complete profile
+                                        console.log('[LOGIN] Facebook login completed');
+                                        
+                                        // Check completion token (lần đầu đăng ký)
                                         const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
+                                        console.log('[LOGIN] Facebook - Completion token:', completionToken);
                                         if (completionToken) {
-                                            router.push('/(auth)/complete-oauth');
+                                            console.log('[LOGIN] Facebook - Redirecting to complete-oauth');
+                                            router.replace('/(auth)/complete-oauth');
+                                            return;
+                                        }
+                                        
+                                        // Check onboarding status và redirect
+                                        const onboardingCompleted = await AsyncStorage.getItem('@edutech/onboardingCompleted');
+                                        console.log('[LOGIN] Facebook - Onboarding status:', onboardingCompleted);
+                                        if (onboardingCompleted === 'true') {
+                                            console.log('[LOGIN] Facebook - Redirecting to /dashboard');
+                                            router.replace('/dashboard');
+                                        } else {
+                                            console.log('[LOGIN] Facebook - Redirecting to /(auth)/personalize');
+                                            router.replace('/(auth)/personalize');
                                         }
                                     } catch (error: any) {
+                                        console.error('[LOGIN] Facebook login error:', error);
                                         Alert.alert(
                                             'Đăng nhập thất bại',
                                             error?.message ?? 'Đăng nhập với Facebook thất bại. Vui lòng thử lại.'

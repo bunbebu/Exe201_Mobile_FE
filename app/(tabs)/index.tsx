@@ -1,7 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +15,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isTablet = SCREEN_WIDTH >= 768;
+const isWeb = Platform.OS === 'web';
 
 interface QuickActionProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -31,8 +42,38 @@ function QuickAction({ icon, label, color, bgColor }: QuickActionProps) {
   );
 }
 
+interface Lesson {
+  id: string;
+  title: string;
+  description: string;
+  orderIndex: number;
+  isCompleted: boolean;
+  isLocked: boolean;
+  isNext: boolean;
+  chapterId?: string;
+  chapterTitle?: string;
+}
+
+interface DashboardHeaderData {
+  fullName: string;
+  currentStreak: number;
+  dailyProgressPercent: number;
+}
+
+interface DashboardData {
+  lessons: Lesson[];
+  totalLessons: number;
+  completedLessons: number;
+  progressPercent: number;
+}
+
 export default function HomeScreen() {
   const colors = useColors();
+  const { tokens, user } = useAuth();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [headerData, setHeaderData] = useState<DashboardHeaderData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   const quickActions: QuickActionProps[] = [
     { icon: 'book-outline', label: 'Môn học', color: '#3B82F6', bgColor: colors.qaBlueBg },
@@ -41,6 +82,179 @@ export default function HomeScreen() {
     { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: colors.qaPurpleBg },
   ];
 
+  // Fetch dashboard header data
+  useEffect(() => {
+    const fetchDashboardHeader = async () => {
+      if (!tokens?.accessToken) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+          },
+        });
+
+        if (res.ok) {
+          const data: any = await res.json();
+          
+          // Extract header data from response
+          // Assuming API returns: { user: { fullName }, studentProfile: { currentStreak }, dailyProgress: { percent } }
+          setHeaderData({
+            fullName: data.user?.fullName || data.fullName || user?.email?.split('@')[0] || 'Bạn',
+            currentStreak: data.studentProfile?.currentStreak || data.currentStreak || 0,
+            dailyProgressPercent: data.dailyProgress?.percent || data.dailyProgressPercent || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard header:', error);
+        // Fallback to user email if API fails
+        setHeaderData({
+          fullName: user?.email?.split('@')[0] || 'Bạn',
+          currentStreak: 0,
+          dailyProgressPercent: 0,
+        });
+      }
+    };
+
+    fetchDashboardHeader();
+  }, [tokens, user]);
+
+  // Fetch courses để lấy courseId đầu tiên
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!tokens?.accessToken) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/courses/personalized`, {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+          },
+        });
+
+        if (res.ok) {
+          const courses: any[] = await res.json();
+          if (courses.length > 0) {
+            setSelectedCourseId(courses[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      }
+    };
+
+    fetchCourses();
+  }, [tokens]);
+
+  // Fetch curriculum với lesson progress
+  useEffect(() => {
+    const fetchCurriculum = async () => {
+      if (!tokens?.accessToken || !selectedCourseId) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/v1/sequential-learning/curriculum/${selectedCourseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.accessToken}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error('Failed to fetch curriculum');
+        }
+
+        const data: any = await res.json();
+
+        // Transform data để có lessons với status
+        const lessons: Lesson[] = [];
+        let foundNext = false;
+
+        if (data.chapters) {
+          data.chapters.forEach((chapter: any) => {
+            if (chapter.lessons) {
+              chapter.lessons.forEach((lesson: any) => {
+                const isCompleted = lesson.progress?.isCompleted || false;
+                const isLocked = lesson.isLocked || false;
+
+                // Bài tiếp theo là bài đầu tiên chưa completed và không locked
+                const isNext = !foundNext && !isCompleted && !isLocked;
+
+                if (isNext) {
+                  foundNext = true;
+                }
+
+                lessons.push({
+                  id: lesson.id,
+                  title: lesson.title,
+                  description: lesson.description,
+                  orderIndex: lesson.orderIndex,
+                  isCompleted,
+                  isLocked: isLocked && !isCompleted,
+                  isNext,
+                  chapterId: chapter.id,
+                  chapterTitle: chapter.title,
+                });
+              });
+            }
+          });
+        }
+
+        const completedLessons = lessons.filter((l) => l.isCompleted).length;
+        const progressPercent =
+          lessons.length > 0 ? Math.round((completedLessons / lessons.length) * 100) : 0;
+
+        setDashboardData({
+          lessons,
+          totalLessons: lessons.length,
+          completedLessons,
+          progressPercent,
+        });
+      } catch (error: any) {
+        console.error('Error fetching curriculum:', error);
+        Alert.alert('Lỗi', 'Không thể tải danh sách bài học. Vui lòng thử lại.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCurriculum();
+  }, [tokens, selectedCourseId]);
+
+  const getLessonStatusColor = (lesson: Lesson) => {
+    if (lesson.isCompleted) {
+      return '#10B981'; // Xanh - đã hoàn thành
+    }
+    if (lesson.isNext) {
+      return '#F59E0B'; // Vàng - bài tiếp theo (unlock)
+    }
+    return '#9CA3AF'; // Xám - locked
+  };
+
+  const getLessonStatusBg = (lesson: Lesson) => {
+    if (lesson.isCompleted) {
+      return '#D1FAE5'; // Xanh nhạt
+    }
+    if (lesson.isNext) {
+      return '#FEF3C7'; // Vàng nhạt
+    }
+    return '#F3F4F6'; // Xám nhạt
+  };
+
+  const getLessonIcon = (lesson: Lesson) => {
+    if (lesson.isCompleted) {
+      return 'checkmark-circle';
+    }
+    if (lesson.isLocked) {
+      return 'lock-closed';
+    }
+    return 'play-circle';
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -48,18 +262,56 @@ export default function HomeScreen() {
         <View style={[styles.header, { backgroundColor: colors.headerBg }]}>
           <View style={styles.headerLeft}>
             <Image
-              source={{ uri: 'https://kenh14cdn.com/203336854389633024/2021/1/3/5eaa8adf32978-1589277602636643044840-158953676924396578872-16096680352171545831444.jpeg' }}
+              source={{ uri: user?.avatarUrl || 'https://kenh14cdn.com/203336854389633024/2021/1/3/5eaa8adf32978-1589277602636643044840-158953676924396578872-16096680352171545831444.jpeg' }}
               style={styles.avatar}
             />
-            <View>
-              <Text style={[styles.greeting, { color: colors.secondaryText }]}>Chào buổi sáng,</Text>
-              <Text style={[styles.userName, { color: colors.text }]}>Nam! 👋</Text>
+            <View style={styles.headerTextContainer}>
+              <Text style={[styles.greeting, { color: colors.secondaryText }]}>
+                {(() => {
+                  const hour = new Date().getHours();
+                  if (hour < 12) return 'Chào buổi sáng';
+                  if (hour < 18) return 'Chào buổi chiều';
+                  return 'Chào buổi tối';
+                })()}
+                ,
+              </Text>
+              <Text style={[styles.userName, { color: colors.text }]}>
+                {headerData?.fullName || user?.email?.split('@')[0] || 'Bạn'}! 👋
+              </Text>
+              {headerData && headerData.currentStreak > 0 && (
+                <View style={styles.streakContainer}>
+                  <Ionicons name="flame" size={14} color="#F59E0B" />
+                  <Text style={styles.streakText}>
+                    {headerData.currentStreak} ngày liên tiếp
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
           <TouchableOpacity style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}>
             <Ionicons name="notifications-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
+
+        {/* Daily Progress Bar */}
+        {headerData && headerData.dailyProgressPercent > 0 && (
+          <View style={[styles.dailyProgressContainer, { backgroundColor: colors.cardBg }]}>
+            <View style={styles.dailyProgressHeader}>
+              <Text style={[styles.dailyProgressLabel, { color: colors.text }]}>Tiến độ hôm nay</Text>
+              <Text style={styles.dailyProgressPercent}>
+                {Math.round(headerData.dailyProgressPercent)}%
+              </Text>
+            </View>
+            <View style={styles.dailyProgressBarBg}>
+              <View
+                style={[
+                  styles.dailyProgressBar,
+                  { width: `${headerData.dailyProgressPercent}%` },
+                ]}
+              />
+            </View>
+          </View>
+        )}
 
         {/* Progress Card */}
         <View style={styles.progressCard}>
@@ -68,13 +320,22 @@ export default function HomeScreen() {
 
           <View style={styles.progressInfo}>
             <View style={styles.progressBarContainer}>
-              <Text style={styles.progressPercent}>Đã hoàn thành 80%</Text>
+              <Text style={styles.progressPercent}>
+                Đã hoàn thành {dashboardData?.progressPercent || 0}%
+              </Text>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBar, { width: '80%' }]} />
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${dashboardData?.progressPercent || 0}%` },
+                  ]}
+                />
               </View>
             </View>
             <View style={styles.lessonCount}>
-              <Text style={styles.lessonCountText}>12/15 Bài</Text>
+              <Text style={styles.lessonCountText}>
+                {dashboardData?.completedLessons || 0}/{dashboardData?.totalLessons || 0} Bài
+              </Text>
             </View>
           </View>
         </View>
@@ -86,37 +347,117 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Next Lesson Section */}
+        {/* Lessons List Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Bài học tiếp theo</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Danh sách bài học</Text>
             <TouchableOpacity>
               <Text style={styles.seeAllText}>Xem tất cả</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[styles.lessonCard, { backgroundColor: colors.cardBg }]}>
-            <View style={styles.lessonIconContainer}>
-              <Ionicons name="leaf" size={24} color="#10B981" />
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text style={[styles.loadingText, { color: colors.secondaryText }]}>
+                Đang tải danh sách bài học...
+              </Text>
             </View>
-            <View style={styles.lessonInfo}>
-              <Text style={[styles.lessonTitle, { color: colors.text }]}>Toán học - Lớp 9</Text>
-              <Text style={[styles.lessonSubtitle, { color: colors.secondaryText }]}>Bài 4: Hệ thức Vi-ét</Text>
-              <View style={styles.lessonMeta}>
-                <View style={styles.lessonMetaItem}>
-                  <Ionicons name="time-outline" size={14} color={colors.mutedText} />
-                  <Text style={[styles.lessonMetaText, { color: colors.mutedText }]}>45 phút</Text>
+          ) : dashboardData && dashboardData.lessons.length > 0 ? (
+            dashboardData.lessons.map((lesson) => (
+              <TouchableOpacity
+                key={lesson.id}
+                style={[
+                  styles.lessonCard,
+                  {
+                    backgroundColor: colors.cardBg,
+                    opacity: lesson.isLocked ? 0.6 : 1,
+                  },
+                ]}
+                onPress={() => {
+                  if (lesson.isLocked) {
+                    Alert.alert('Khóa', 'Bạn cần hoàn thành bài học trước để mở khóa bài này.');
+                  } else {
+                    router.push({ pathname: '/lesson/[id]', params: { id: lesson.id } } as any);
+                  }
+                }}
+                disabled={lesson.isLocked}
+              >
+                <View
+                  style={[
+                    styles.lessonIconContainer,
+                    { backgroundColor: getLessonStatusBg(lesson) },
+                  ]}
+                >
+                  <Ionicons
+                    name={getLessonIcon(lesson) as any}
+                    size={24}
+                    color={getLessonStatusColor(lesson)}
+                  />
                 </View>
-                <View style={styles.lessonMetaItem}>
-                  <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={[styles.lessonMetaText, { color: colors.mutedText }]}>Cơ bản</Text>
+                <View style={styles.lessonInfo}>
+                  {lesson.chapterTitle && (
+                    <Text style={[styles.lessonChapter, { color: colors.secondaryText }]}>
+                      {lesson.chapterTitle}
+                    </Text>
+                  )}
+                  <Text style={[styles.lessonTitle, { color: colors.text }]}>{lesson.title}</Text>
+                  <Text style={[styles.lessonSubtitle, { color: colors.secondaryText }]} numberOfLines={2}>
+                    {lesson.description}
+                  </Text>
+                  <View style={styles.lessonMeta}>
+                    <View style={styles.lessonMetaItem}>
+                      <Ionicons
+                        name={lesson.isCompleted ? 'checkmark-circle' : lesson.isLocked ? 'lock-closed' : 'play-circle'}
+                        size={14}
+                        color={getLessonStatusColor(lesson)}
+                      />
+                      <Text
+                        style={[
+                          styles.lessonMetaText,
+                          { color: getLessonStatusColor(lesson) },
+                        ]}
+                      >
+                        {lesson.isCompleted
+                          ? 'Đã hoàn thành'
+                          : lesson.isLocked
+                          ? 'Đã khóa'
+                          : 'Có thể học'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
+                {!lesson.isLocked && (
+                  <TouchableOpacity
+                    style={[
+                      styles.playButton,
+                      {
+                        backgroundColor: lesson.isCompleted
+                          ? '#10B981'
+                          : lesson.isNext
+                          ? '#F59E0B'
+                          : '#3B82F6',
+                      },
+                    ]}
+                    onPress={() => router.push({ pathname: '/lesson/[id]', params: { id: lesson.id } } as any)}
+                  >
+                    <Ionicons
+                      name={lesson.isCompleted ? 'checkmark' : 'play'}
+                      size={20}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="book-outline" size={48} color={colors.mutedText} />
+              <Text style={[styles.emptyText, { color: colors.secondaryText }]}>
+                Chưa có bài học nào
+              </Text>
             </View>
-            <TouchableOpacity style={styles.playButton}>
-              <Ionicons name="play" size={20} color="#fff" />
-            </TouchableOpacity>
-          </TouchableOpacity>
+          )}
         </View>
 
         {/* Suggestions Section */}
@@ -158,73 +499,128 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    maxWidth: isWeb ? 1200 : '100%',
+    alignSelf: isWeb ? 'center' : 'stretch',
+    width: isWeb ? '100%' : SCREEN_WIDTH,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    paddingVertical: isTablet ? 20 : 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: isTablet ? 16 : 12,
+    flex: 1,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isTablet ? 52 : 44,
+    height: isTablet ? 52 : 44,
+    borderRadius: isTablet ? 26 : 22,
   },
   greeting: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : 14,
   },
   userName: {
-    fontSize: 18,
+    fontSize: isTablet ? 20 : 18,
     fontWeight: '700',
+    marginTop: 2,
+  },
+  streakContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  streakText: {
+    fontSize: isTablet ? 13 : 11,
+    color: '#F59E0B',
+    fontWeight: '600',
+  },
+  dailyProgressContainer: {
+    marginHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: isTablet ? 16 : 12,
+    borderRadius: 12,
+  },
+  dailyProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dailyProgressLabel: {
+    fontSize: isTablet ? 14 : 12,
+    fontWeight: '600',
+  },
+  dailyProgressPercent: {
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: '700',
+    color: '#3B82F6',
+  },
+  dailyProgressBarBg: {
+    height: isTablet ? 10 : 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  dailyProgressBar: {
+    height: '100%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 4,
   },
   notificationBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isTablet ? 52 : 44,
+    height: isTablet ? 52 : 44,
+    borderRadius: isTablet ? 26 : 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   progressCard: {
-    margin: 20,
-    padding: 20,
+    margin: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    padding: isTablet ? 28 : isWeb ? 24 : 20,
     backgroundColor: '#3B82F6',
-    borderRadius: 20,
+    borderRadius: isTablet ? 24 : 20,
+    maxWidth: isWeb ? 800 : '100%',
+    alignSelf: isWeb ? 'center' : 'stretch',
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : 12,
     color: 'rgba(255,255,255,0.8)',
     marginBottom: 4,
   },
   progressTitle: {
-    fontSize: 22,
+    fontSize: isTablet ? 26 : isWeb ? 24 : 22,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: isTablet ? 20 : 16,
   },
   progressInfo: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+    gap: 16,
   },
   progressBarContainer: {
     flex: 1,
-    marginRight: 16,
+    minWidth: 0,
   },
   progressPercent: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : 12,
     color: 'rgba(255,255,255,0.8)',
     marginBottom: 8,
   },
   progressBarBg: {
-    height: 8,
+    height: isTablet ? 10 : 8,
     backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 4,
   },
@@ -235,60 +631,68 @@ const styles = StyleSheet.create({
   },
   lessonCount: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: isTablet ? 16 : 12,
+    paddingVertical: isTablet ? 8 : 6,
     borderRadius: 8,
+    flexShrink: 0,
   },
   lessonCountText: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : 14,
     fontWeight: '600',
     color: '#fff',
   },
   quickActionsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    marginBottom: isTablet ? 32 : 24,
+    gap: isTablet ? 16 : isWeb ? 12 : 0,
+    flexWrap: isWeb && SCREEN_WIDTH < 600 ? 'wrap' : 'nowrap',
   },
   quickAction: {
-    flex: 1,
+    flex: isWeb && SCREEN_WIDTH < 600 ? 0 : 1,
     alignItems: 'center',
+    ...(isWeb && SCREEN_WIDTH < 600 ? { width: '48%' } : {}),
+    marginBottom: isWeb && SCREEN_WIDTH < 600 ? 12 : 0,
   },
   quickActionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: isTablet ? 64 : isWeb && SCREEN_WIDTH >= 1024 ? 64 : 56,
+    height: isTablet ? 64 : isWeb && SCREEN_WIDTH >= 1024 ? 64 : 56,
+    borderRadius: isTablet ? 20 : 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: isTablet ? 12 : 8,
   },
   quickActionLabel: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
     fontWeight: '500',
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    marginBottom: isTablet ? 32 : 24,
+    maxWidth: isWeb ? 800 : '100%',
+    alignSelf: isWeb ? 'center' : 'stretch',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: isTablet ? 20 : 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isTablet ? 22 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 18,
     fontWeight: '700',
   },
   seeAllText: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : isWeb && SCREEN_WIDTH >= 1024 ? 16 : 14,
     color: '#3B82F6',
     fontWeight: '500',
   },
   lessonCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: isTablet ? 20 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 16,
+    borderRadius: isTablet ? 20 : 16,
+    marginBottom: isTablet ? 16 : 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -296,29 +700,38 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   lessonIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: isTablet ? 56 : isWeb && SCREEN_WIDTH >= 1024 ? 56 : 48,
+    height: isTablet ? 56 : isWeb && SCREEN_WIDTH >= 1024 ? 56 : 48,
+    borderRadius: isTablet ? 16 : 12,
     backgroundColor: '#D1FAE5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: isTablet ? 16 : 12,
+    flexShrink: 0,
   },
   lessonInfo: {
     flex: 1,
+    minWidth: 0,
+  },
+  lessonChapter: {
+    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
+    marginBottom: 4,
+    fontWeight: '500',
   },
   lessonTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : isWeb && SCREEN_WIDTH >= 1024 ? 18 : 16,
     fontWeight: '600',
     marginBottom: 2,
   },
   lessonSubtitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : isWeb && SCREEN_WIDTH >= 1024 ? 16 : 14,
     marginBottom: 6,
+    lineHeight: isTablet ? 22 : 20,
   },
   lessonMeta: {
     flexDirection: 'row',
-    gap: 12,
+    gap: isTablet ? 16 : 12,
+    flexWrap: 'wrap',
   },
   lessonMetaItem: {
     flexDirection: 'row',
@@ -326,41 +739,61 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   lessonMetaText: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
   },
   playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    height: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    borderRadius: isTablet ? 24 : 20,
     backgroundColor: '#3B82F6',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   suggestionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: isWeb && SCREEN_WIDTH < 600 ? 'column' : 'row',
+    gap: isTablet ? 16 : 12,
     marginTop: 16,
   },
   suggestionCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 16,
+    flex: isWeb && SCREEN_WIDTH < 600 ? 0 : 1,
+    padding: isTablet ? 20 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 16,
+    borderRadius: isTablet ? 20 : 16,
+    ...(isWeb && SCREEN_WIDTH < 600 ? { width: '100%' } : {}),
   },
   suggestionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    height: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    borderRadius: isTablet ? 16 : 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: isTablet ? 16 : 12,
   },
   suggestionTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : isWeb && SCREEN_WIDTH >= 1024 ? 18 : 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   suggestionDescription: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: isTablet ? 15 : isWeb && SCREEN_WIDTH >= 1024 ? 15 : 13,
+    lineHeight: isTablet ? 22 : 18,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isTablet ? 60 : 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: isTablet ? 16 : 14,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isTablet ? 60 : 40,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: isTablet ? 16 : 14,
   },
 });

@@ -8,8 +8,11 @@ export default function AuthLayout() {
             <Stack.Screen name="login" />
             <Stack.Screen name="register" />
             <Stack.Screen name="verify-otp" />
+            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="reset-password" />
             <Stack.Screen name="personalize" />
             <Stack.Screen name="select-grade" />
+            <Stack.Screen name="update-profile" />
             <Stack.Screen name="complete-oauth" />
         </Stack>
     );

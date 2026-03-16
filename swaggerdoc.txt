@@ -1,0 +1,6099 @@
+EduTech API
+ 1.0.0 
+OAS 3.0
+REST API documentation for EduTech learning platform
+
+Contact HuyND
+Servers
+
+http://localhost:8888 - Local Development
+
+Authorize
+Filter by tag
+Auth
+
+
+POST
+/api/v1/auth/email/register
+Register a new user
+
+Creates the user account and automatically creates the role-specific profile (student_profiles / parent_profiles / teacher_profiles). A verification email is sent immediately after registration.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "alice@example.com",
+  "password": "Str0ngP@ss",
+  "firstName": "Alice",
+  "lastName": "Johnson",
+  "role": "STUDENT",
+  "gradeLevel": "10",
+  "phoneNumber": "+84912345678",
+  "relationship": "MOTHER",
+  "nationalIdNumber": "079200012345",
+  "subjectsTaught": [
+    "Mathematics",
+    "Physics"
+  ],
+  "yearsOfExperience": 5,
+  "educationLevel": "MASTER"
+}
+Responses
+Code	Description	Links
+201	
+User registered. Verification email sent to inbox.
+
+No links
+400	
+User already exists or validation error
+
+No links
+
+GET
+/api/v1/auth/email/verify
+Verify email via token link (browser redirect endpoint)
+
+Clicked from the email. Renders email-verified.hbs or verification-error.hbs.
+
+Parameters
+Try it out
+Name	Description
+token *
+string
+(query)
+Email verification token from email link
+
+token
+Responses
+Code	Description	Links
+200	
+Email verified – renders email-verified.hbs
+
+No links
+400	
+Invalid/expired token – renders verification-error.hbs
+
+No links
+
+POST
+/api/v1/auth/email/resend-verification
+Resend email verification link
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "user@example.com"
+}
+Responses
+Code	Description	Links
+200	
+Verification email sent
+
+No links
+400	
+Email already verified or user not found
+
+No links
+
+POST
+/api/v1/auth/email/login
+Login with email and password
+
+Authenticates the user and creates a session record in the database. The session stores: hashed refresh token, device info (User-Agent header) and IP address (X-Forwarded-For or socket.remoteAddress). Returns accessToken (short-lived JWT), refreshToken (long-lived JWT) and sessionId.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "string",
+  "password": "string"
+}
+Responses
+Code	Description	Links
+200	
+Login successful. Use accessToken in Authorization: Bearer header.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "accessToken": "string",
+  "refreshToken": "string",
+  "user": {
+    "id": "string",
+    "email": "user@example.com",
+    "role": "STUDENT",
+    "avatarUrl": "https://cdn.example.com/avatar.png",
+    "isActive": true,
+    "isDeleted": true,
+    "deletedAt": "2026-03-11T08:57:00.175Z",
+    "emailVerificationStatus": "pending",
+    "emailVerificationToken": "string",
+    "emailVerificationExpires": "2026-03-11T08:57:00.175Z",
+    "createdAt": "2026-03-11T08:57:00.175Z",
+    "updatedAt": "2026-03-11T08:57:00.175Z"
+  },
+  "sessionId": "string",
+  "message": "string"
+}
+No links
+400	
+Email not verified
+
+No links
+401	
+Invalid credentials
+
+No links
+
+POST
+/api/v1/auth/refresh
+Rotate refresh token
+
+Validates the current refresh token against the sessions collection and performs token rotation: the old hashed RT is overwritten with a new one. This prevents replay attacks – each refresh token is single-use.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "refreshToken": "string"
+}
+Responses
+Code	Description	Links
+200	
+New access token and refresh token generated. Previous refresh token revoked.
+
+No links
+401	
+Invalid, expired or already-revoked refresh token
+
+No links
+
+POST
+/api/v1/auth/logout
+Logout – revoke a specific session
+
+
+Provide sessionId in the body to revoke that specific session (single-device logout). Omit sessionId to revoke all sessions (all-device logout). Requires valid access token.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "sessionId": "507f1f77bcf86cd799439011"
+}
+Responses
+Code	Description	Links
+200	
+Session(s) revoked
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/auth/logout-all
+Logout from all devices
+
+
+Revokes every active session for the authenticated user.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+All sessions revoked
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/auth/password/forgot
+Step 1 — Forgot password: send OTP to registered email
+
+Generates a 6-digit OTP valid for 10 minutes and dispatches it to the registered email address. The response is always identical regardless of whether the email exists (prevents user enumeration).
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "student@example.com"
+}
+Responses
+Code	Description	Links
+200	
+OTP sent (or email not found — same response)
+
+No links
+
+POST
+/api/v1/auth/password/verify-otp
+Step 2 — Verify OTP: exchange OTP for a reset token
+
+Validates the 6-digit OTP from Step 1. On success, returns a reset token valid for 60 minutes that must be supplied in Step 3. The OTP is consumed immediately and cannot be reused.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "student@example.com",
+  "otp": "482912"
+}
+Responses
+Code	Description	Links
+200	
+OTP valid — reset token returned
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "resetToken": "string"
+}
+No links
+400	
+Invalid, incorrect, or expired OTP
+
+No links
+
+POST
+/api/v1/auth/password/reset
+Step 3 — Reset password: set new password, sign out all devices
+
+Validates the reset token from Step 2, updates the password hash, and revokes every active session across all devices (Step 4 — re-sync). The user must sign in again with the new password.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "resetToken": "a3f2c1e9d8b74502...",
+  "newPassword": "NewPass@2026"
+}
+Responses
+Code	Description	Links
+200	
+Password updated. All sessions revoked.
+
+No links
+400	
+Invalid or expired reset token
+
+No links
+
+POST
+/api/v1/auth/change-password
+Change password for authenticated user
+
+
+Allows authenticated users to change their password by providing the current password and the new password. Requires valid access token. All active sessions will be revoked after password change (re-sync across all devices).
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "currentPassword": "OldPass@2026",
+  "newPassword": "NewPass@2026"
+}
+Responses
+Code	Description	Links
+200	
+Password changed successfully. All sessions revoked.
+
+No links
+400	
+Validation error or invalid request
+
+No links
+401	
+Unauthorized or current password is incorrect
+
+No links
+
+POST
+/api/v1/auth/migrate/users
+[Dev] Seed admin account (do not use in production)
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+201	
+Admin account created
+
+No links
+400	
+Admin account already exists
+
+No links
+
+GET
+/api/v1/auth/admin/pending-approvals
+List accounts pending admin approval (Admin only)
+
+
+Returns Teacher and Parent accounts whose email has been verified but whose account has not yet been approved or rejected. Ordered oldest-first (FIFO review queue).
+
+Parameters
+Try it out
+Name	Description
+page
+number
+(query)
+1
+limit
+number
+(query)
+20
+Responses
+Code	Description	Links
+200	
+Pending-approval accounts listed
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/auth/admin/approve
+Approve a Teacher/Parent account (Admin only)
+
+
+Sets the account status to APPROVED and sends a confirmation email. The user can log in immediately after approval.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "userId": "665f1a2b3c4d5e6f7a8b9c0d"
+}
+Responses
+Code	Description	Links
+200	
+Account approved
+
+No links
+400	
+User not found or already approved
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/auth/admin/reject
+Reject a Teacher/Parent account (Admin only)
+
+
+Sets the account status to REJECTED, stores the rejection reason, and sends a notification email with the reason and instructions for resubmission.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "userId": "665f1a2b3c4d5e6f7a8b9c0d",
+  "reason": "Your teaching certificates were not clearly legible. Please upload high-quality scans."
+}
+Responses
+Code	Description	Links
+200	
+Account rejected
+
+No links
+400	
+User not found or invalid role
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/auth/resubmit-approval
+Resubmit application after rejection (Teacher/Parent only)
+
+Available only for accounts with approvalStatus = REJECTED. Authenticate with email + password, then provide updated profile data. On success, resets the status to PENDING_APPROVAL and notifies the admin team.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "teacher@example.com",
+  "password": "Str0ngP@ss",
+  "teacherData": {
+    "subjectsTaught": [
+      "Mathematics",
+      "Physics"
+    ],
+    "yearsOfExperience": 7,
+    "educationLevel": "MASTER",
+    "certificateUrls": [
+      "https://storage.example.com/certs/cert1.pdf"
+    ],
+    "cvUrl": "https://storage.example.com/cvs/alice-cv.pdf",
+    "linkedinUrl": "https://linkedin.com/in/alice-johnson",
+    "phoneNumber": "+84912345678"
+  },
+  "parentData": {
+    "relationship": "FATHER",
+    "nationalIdNumber": "079200012345",
+    "nationalIdImageUrl": "https://storage.example.com/ids/parent-id.jpg",
+    "phoneNumber": "+84912345678"
+  }
+}
+Responses
+Code	Description	Links
+200	
+Application resubmitted for review
+
+No links
+400	
+Invalid credentials, wrong role, or account not in REJECTED state
+
+No links
+
+POST
+/api/v1/auth/oauth/complete-profile
+Complete OAuth profile after first Google/Facebook login
+
+Use the completionToken from the OAuth callback to set your role and provide role-specific fields. Student role returns tokens immediately. Teacher/Parent roles enter pending-approval state.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "completionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "role": "TEACHER",
+  "firstName": "Nguyen",
+  "lastName": "Van A",
+  "phoneNumber": "+84912345678",
+  "relationship": "MOTHER",
+  "nationalIdNumber": "079200012345",
+  "subjectsTaught": [
+    "Mathematics",
+    "Physics"
+  ],
+  "yearsOfExperience": 5,
+  "educationLevel": "MASTER"
+}
+Responses
+Code	Description	Links
+200	
+Student: returns tokens. Teacher/Parent: returns pendingApproval=true message.
+
+No links
+400	
+Invalid/expired completionToken or validation error
+
+No links
+Users
+
+
+POST
+/api/v1/users
+Create a new user (Admin only) — auto-verifies email, auto-approves Teacher/Parent, creates role profile
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "email": "user@example.com",
+  "password": "stringst",
+  "role": "STUDENT",
+  "firstName": "Nguyen",
+  "lastName": "Van A",
+  "phoneNumber": "+84912345678",
+  "relationship": "MOTHER",
+  "nationalIdNumber": "079200012345",
+  "subjectsTaught": [
+    "Mathematics",
+    "Physics"
+  ],
+  "yearsOfExperience": 5,
+  "educationLevel": "MASTER"
+}
+Responses
+Code	Description	Links
+201	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "string",
+  "email": "user@example.com",
+  "role": "STUDENT",
+  "avatarUrl": "https://cdn.example.com/avatar.png",
+  "isActive": true,
+  "isDeleted": true,
+  "deletedAt": "2026-03-11T08:57:00.205Z",
+  "emailVerificationStatus": "pending",
+  "emailVerificationToken": "string",
+  "emailVerificationExpires": "2026-03-11T08:57:00.205Z",
+  "createdAt": "2026-03-11T08:57:00.205Z",
+  "updatedAt": "2026-03-11T08:57:00.205Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/users
+List users — paginated, filterable, sortable (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+page
+number
+(query)
+Page number (1-based)
+
+Default value : 1
+
+1
+limit
+number
+(query)
+Number of items per page
+
+Default value : 10
+
+10
+filters
+string
+(query)
+JSON-encoded FilterUserDto. Example: {"roles":["ADMIN","TEACHER"],"isActive":true,"email":"john"}
+
+{"roles":["ADMIN"],"isActive":true}
+sort
+string
+(query)
+JSON-encoded SortUserDto[]. Example: [{"orderBy":"role","order":"asc"},{"orderBy":"createdAt","order":"desc"}]
+
+[{"orderBy":"createdAt","order":"desc"}]
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "data": [
+    {
+      "id": "string",
+      "email": "user@example.com",
+      "role": "STUDENT",
+      "avatarUrl": "https://cdn.example.com/avatar.png",
+      "isActive": true,
+      "isDeleted": true,
+      "deletedAt": "2026-03-11T08:57:00.211Z",
+      "emailVerificationStatus": "pending",
+      "emailVerificationToken": "string",
+      "emailVerificationExpires": "2026-03-11T08:57:00.211Z",
+      "createdAt": "2026-03-11T08:57:00.211Z",
+      "updatedAt": "2026-03-11T08:57:00.211Z"
+    }
+  ],
+  "hasNextPage": true
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/users/admin/stats
+Get user statistics (Admin only)
+
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Statistics retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "total": 120,
+  "byRole": {
+    "STUDENT": 80,
+    "PARENT": 20,
+    "TEACHER": 15,
+    "ADMIN": 5
+  },
+  "active": 110,
+  "inactive": 10,
+  "deleted": 3
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/users/{id}
+Get user by ID (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "string",
+  "email": "user@example.com",
+  "role": "STUDENT",
+  "avatarUrl": "https://cdn.example.com/avatar.png",
+  "isActive": true,
+  "isDeleted": true,
+  "deletedAt": "2026-03-11T08:57:00.216Z",
+  "emailVerificationStatus": "pending",
+  "emailVerificationToken": "string",
+  "emailVerificationExpires": "2026-03-11T08:57:00.216Z",
+  "createdAt": "2026-03-11T08:57:00.216Z",
+  "updatedAt": "2026-03-11T08:57:00.216Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+User not found
+
+No links
+
+DELETE
+/api/v1/users/{id}
+Soft-delete user by ID (Admin only). Sets isDeleted=true; record is preserved.
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+User soft-deleted successfully
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+User not found
+
+No links
+
+PATCH
+/api/v1/users/{id}/status
+Update user active status explicitly (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "isActive": true
+}
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "string",
+  "email": "user@example.com",
+  "role": "STUDENT",
+  "avatarUrl": "https://cdn.example.com/avatar.png",
+  "isActive": true,
+  "isDeleted": true,
+  "deletedAt": "2026-03-11T08:57:00.228Z",
+  "emailVerificationStatus": "pending",
+  "emailVerificationToken": "string",
+  "emailVerificationExpires": "2026-03-11T08:57:00.228Z",
+  "createdAt": "2026-03-11T08:57:00.228Z",
+  "updatedAt": "2026-03-11T08:57:00.228Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+User not found
+
+No links
+
+PATCH
+/api/v1/users/me/avatar
+Update my avatar — upload file first to /uploads, then pass avatar object here
+
+
+Updates the avatar URL of the currently authenticated user. Pass the avatar object returned from POST /uploads.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "avatarUrl": {
+    "publicId": "edutech/avatars/abc123def456",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234567890/edutech/avatars/abc123def456.jpg"
+  }
+}
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "string",
+  "email": "user@example.com",
+  "role": "STUDENT",
+  "avatarUrl": "https://cdn.example.com/avatar.png",
+  "isActive": true,
+  "isDeleted": true,
+  "deletedAt": "2026-03-11T08:57:00.232Z",
+  "emailVerificationStatus": "pending",
+  "emailVerificationToken": "string",
+  "emailVerificationExpires": "2026-03-11T08:57:00.232Z",
+  "createdAt": "2026-03-11T08:57:00.232Z",
+  "updatedAt": "2026-03-11T08:57:00.232Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+404	
+User not found
+
+No links
+Teacher Profiles
+
+
+GET
+/api/v1/teacher-profiles/me
+Get my teacher profile
+
+
+Returns the profile of the currently authenticated teacher.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Teacher profile
+
+No links
+404	
+Profile not found
+
+No links
+
+PUT
+/api/v1/teacher-profiles/me
+Update my teacher profile (fullName, bio)
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Jane Doe",
+  "bio": "Updated bio information",
+  "phoneNumber": "+84987654321",
+  "subjectsTaught": [
+    "Mathematics",
+    "Chemistry"
+  ],
+  "yearsOfExperience": 10,
+  "educationLevel": "PHD",
+  "certificateUrls": [
+    "https://example.com/cert2.pdf"
+  ],
+  "cvUrl": "https://example.com/updated-cv.pdf",
+  "linkedinUrl": "https://linkedin.com/in/janedoe"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+
+PUT
+/api/v1/teacher-profiles/me/bio
+Update my teacher bio
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "bio": "Passionate math teacher."
+}
+Responses
+Code	Description	Links
+200	
+Bio updated
+
+No links
+
+GET
+/api/v1/teacher-profiles
+[Admin] List all teacher profiles
+
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Array of teacher profiles
+
+No links
+
+POST
+/api/v1/teacher-profiles
+[Admin] Manually create a teacher profile
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "userId": "507f1f77bcf86cd799439011",
+  "fullName": "John Smith",
+  "bio": "Experienced math teacher with 10 years of experience",
+  "phoneNumber": "+84912345678",
+  "subjectsTaught": [
+    "Mathematics",
+    "Physics"
+  ],
+  "yearsOfExperience": 5,
+  "educationLevel": "MASTER",
+  "certificateUrls": [
+    "https://example.com/cert1.pdf"
+  ],
+  "cvUrl": "https://example.com/cv.pdf",
+  "linkedinUrl": "https://linkedin.com/in/johnsmith"
+}
+Responses
+Code	Description	Links
+201	
+Profile created
+
+No links
+
+GET
+/api/v1/teacher-profiles/user/{userId}
+Get teacher profile by userId
+
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+User ObjectId
+
+userId
+Responses
+Code	Description	Links
+200	
+Teacher profile
+
+No links
+404	
+Not found
+
+No links
+
+GET
+/api/v1/teacher-profiles/{id}
+[Admin] Get teacher profile by profile ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Responses
+Code	Description	Links
+200	
+Teacher profile
+
+No links
+404	
+Not found
+
+No links
+
+PUT
+/api/v1/teacher-profiles/{id}
+[Admin] Update a teacher profile by ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Jane Doe",
+  "bio": "Updated bio information",
+  "phoneNumber": "+84987654321",
+  "subjectsTaught": [
+    "Mathematics",
+    "Chemistry"
+  ],
+  "yearsOfExperience": 10,
+  "educationLevel": "PHD",
+  "certificateUrls": [
+    "https://example.com/cert2.pdf"
+  ],
+  "cvUrl": "https://example.com/updated-cv.pdf",
+  "linkedinUrl": "https://linkedin.com/in/janedoe"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+
+PUT
+/api/v1/teacher-profiles/{id}/bio
+Update teacher bio by profile ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "bio": "Experienced educator."
+}
+Responses
+Code	Description	Links
+200	
+Bio updated
+
+No links
+Parent Profiles
+
+
+GET
+/api/v1/parent-profiles/me
+Get my parent profile
+
+
+Returns the profile of the currently authenticated parent.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Parent profile
+
+No links
+401	
+Unauthorized
+
+No links
+404	
+Profile not found
+
+No links
+
+PUT
+/api/v1/parent-profiles/me
+Update my parent profile
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Robert Williams",
+  "phoneNumber": "+9876543210",
+  "relationship": "FATHER",
+  "nationalIdNumber": "079200099999",
+  "nationalIdImageUrl": "https://example.com/id-card-updated.jpg"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+401	
+Unauthorized
+
+No links
+404	
+Profile not found
+
+No links
+
+GET
+/api/v1/parent-profiles
+[Admin] List all parent profiles
+
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Array of parent profiles
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/parent-profiles/{id}
+[Admin] Get parent profile by profile ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Responses
+Code	Description	Links
+200	
+Parent profile
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Not found
+
+No links
+
+PUT
+/api/v1/parent-profiles/{id}
+[Admin] Update a parent profile by ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Robert Williams",
+  "phoneNumber": "+9876543210",
+  "relationship": "FATHER",
+  "nationalIdNumber": "079200099999",
+  "nationalIdImageUrl": "https://example.com/id-card-updated.jpg"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Not found
+
+No links
+Student Profiles
+
+
+GET
+/api/v1/student-profiles/me
+Get my student profile
+
+
+Returns the profile of the currently authenticated student.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Student profile
+
+No links
+401	
+Unauthorized
+
+No links
+404	
+Profile not found
+
+No links
+
+PUT
+/api/v1/student-profiles/me
+Update my student profile
+
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Alice Smith",
+  "gender": "female",
+  "dateOfBirth": "2010-06-20",
+  "schoolName": "Washington Elementary School",
+  "gradeLevel": "1"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+401	
+Unauthorized
+
+No links
+404	
+Profile not found
+
+No links
+
+POST
+/api/v1/student-profiles/onboarding
+Complete onboarding questionnaire (Student only)
+
+
+Sets gradeLevel + preferredSubjectIds and marks the profile as onboarding-complete. Call this once after registration before accessing the Dashboard.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "gradeLevel": "12",
+  "fullName": "Nguyễn Văn An",
+  "schoolName": "THPT Nguyễn Du",
+  "preferredSubjectIds": [
+    "507f1f77bcf86cd799439011",
+    "507f1f77bcf86cd799439012"
+  ]
+}
+Responses
+Code	Description	Links
+200	
+Onboarding completed — proceed to /dashboard
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Student profile not found
+
+No links
+
+GET
+/api/v1/student-profiles
+[Admin] List all student profiles
+
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Array of student profiles
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/student-profiles/{id}
+[Admin] Get student profile by profile ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Responses
+Code	Description	Links
+200	
+Student profile
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Not found
+
+No links
+
+PUT
+/api/v1/student-profiles/{id}
+[Admin] Update a student profile by ID
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Profile ObjectId
+
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "fullName": "Alice Smith",
+  "gender": "female",
+  "dateOfBirth": "2010-06-20",
+  "schoolName": "Washington Elementary School",
+  "gradeLevel": "1"
+}
+Responses
+Code	Description	Links
+200	
+Profile updated
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Not found
+
+No links
+Sessions - This controller should NOT be called directly. Use the AuthService REVOKE METHODS instead.
+
+
+GET
+/api/v1/sessions/user/{userId}
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+userId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/sessions/{id}
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+DELETE
+/api/v1/sessions/{id}
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+DELETE
+/api/v1/sessions/user/{userId}/all
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+userId
+Responses
+Code	Description	Links
+200	
+No links
+Auth - OAuth
+
+
+GET
+/api/v1/auth/oauth/google/login
+Initiate Google OAuth login
+
+MUST be opened in browser tab, NOT via Swagger Execute button. Copy URL and paste in browser address bar.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+302	
+Redirects to Google OAuth consent screen
+
+No links
+400	
+Do not call via AJAX/fetch - use browser navigation only
+
+No links
+
+GET
+/api/v1/auth/oauth/google/callback
+Google OAuth callback
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Returns JWT access token, refresh token and session info
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "user": {},
+  "accessToken": "string",
+  "refreshToken": "string",
+  "sessionId": "string"
+}
+No links
+
+GET
+/api/v1/auth/oauth/facebook/login
+Initiate Facebook OAuth login
+
+MUST be opened in browser tab, NOT via Swagger Execute button. Copy URL and paste in browser address bar.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+302	
+Redirects to Facebook OAuth consent screen
+
+No links
+400	
+Do not call via AJAX/fetch - use browser navigation only
+
+No links
+
+GET
+/api/v1/auth/oauth/facebook/callback
+Facebook OAuth callback
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Returns JWT access token, refresh token and session info
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "user": {},
+  "accessToken": "string",
+  "refreshToken": "string",
+  "sessionId": "string"
+}
+No links
+Home
+
+
+GET
+/
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+No links
+Parent-Student Links
+
+
+POST
+/api/v1/parent-student-links/generate-code
+Step 1 — Generate link code (Student)
+
+
+Generates an 8-character uppercase alphanumeric code valid for 24 hours. The student shares this code with their parent so the parent can connect. If an unexpired code already exists, it is returned without creating a new one.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Link code generated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "linkCode": "A3BX7K2M",
+  "expiresAt": "2025-01-01T12:00:00.000Z"
+}
+No links
+400	
+Student profile not found
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/generate-code/send
+Step 1.5 — Send code via SMS/Zalo (Student)
+
+
+Sends the generated link code to a parent via SMS or Zalo channel. Includes a pre-formatted Vietnamese message with instructions. Requires parent phone number in E.164 format (e.g., +84901234567).
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Code sent successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "success": true,
+  "messageId": "msg_12345abc"
+}
+No links
+400	
+Invalid phone number or channel
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/connect
+Step 2 — Connect by code (Parent)
+
+
+Validates the 8-character link code, verifies it has not expired, and establishes a verified parent-student relationship. The code is consumed on success and cannot be reused.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "code": "A3BX7K2M"
+}
+Responses
+Code	Description	Links
+200	
+Connected to student successfully
+
+No links
+400	
+Invalid / expired code, or already linked
+
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-children
+Get my children (Parent)
+
+
+Returns all verified student profiles linked to the authenticated parent, including XP, streak, grade level, and school information.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+List of linked children
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "linkId": "507f1f77bcf86cd799439011",
+    "studentProfileId": "507f1f77bcf86cd799439012",
+    "fullName": "Nguyen Van A",
+    "gradeLevel": "1",
+    "schoolName": {},
+    "xpTotal": 1240,
+    "currentStreak": 7,
+    "linkedAt": "2025-01-01T00:00:00.000Z"
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-parents
+Get my parents (Student)
+
+
+Returns all verified parent profiles linked to the authenticated student.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+List of linked parents
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "linkId": "507f1f77bcf86cd799439011",
+    "parentProfileId": "507f1f77bcf86cd799439013",
+    "fullName": "Nguyen Thi B",
+    "phoneNumber": "+84901234567",
+    "linkedAt": "2025-01-01T00:00:00.000Z"
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-children/{linkId}/progress
+View child progress report (Parent)
+
+
+Returns an aggregated progress report for the child associated with the given link. Includes lesson stats, quiz scores, XP earned, and streak info for the chosen period (weekly = last 7 days, monthly = last 30 days).
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+period
+string
+(query)
+Report period — weekly (default) or monthly
+
+Available values : weekly, monthly
+
+
+--
+Responses
+Code	Description	Links
+200	
+Progress report retrieved
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "studentProfileId": "507f1f77bcf86cd799439012",
+  "fullName": "Nguyễn Văn A",
+  "gradeLevel": "1",
+  "schoolName": {},
+  "xpTotal": 1240,
+  "currentStreak": 7,
+  "diamondBalance": 320,
+  "periodStart": "2025-01-01T00:00:00.000Z",
+  "periodEnd": "2025-01-07T23:59:59.999Z",
+  "lessonsStarted": 5,
+  "lessonsCompleted": 3,
+  "totalWatchMinutes": 74,
+  "quizzesAttempted": 4,
+  "avgQuizScore": 78.5,
+  "xpEarnedThisPeriod": 340,
+  "quizAttempts": [
+    {
+      "completedAt": "2025-01-06T08:00:00.000Z",
+      "score": 85,
+      "totalQuestions": 10,
+      "correctAnswers": 8
+    }
+  ],
+  "highlightText": "Bé đã hoàn thành 3 bài học và đạt điểm trung bình 78.5 trong tuần này 🎉"
+}
+No links
+400	
+Link not found or not verified
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/send-report
+Send progress report email on demand (Parent/Admin)
+
+
+Triggers an immediate progress report email to the parent for the given link. Use period in the body or default to weekly.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "linkId": "507f1f77bcf86cd799439011",
+  "period": "weekly"
+}
+Responses
+Code	Description	Links
+200	
+Report email sent successfully
+
+No links
+400	
+Link not found or not verified
+
+No links
+401	
+Unauthorized
+
+No links
+
+DELETE
+/api/v1/parent-student-links/my-children/{linkId}
+Revoke a parent link — student side
+
+
+Permanently removes the parent-student link. The student must be a party to the link.
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+Responses
+Code	Description	Links
+200	
+Link revoked successfully
+
+No links
+400	
+Link not found or not authorized
+
+No links
+401	
+Unauthorized
+
+No links
+
+DELETE
+/api/v1/parent-student-links/my-parents/{linkId}
+Revoke a parent link — parent side
+
+
+Permanently removes the parent-student link. The parent must be a party to the link.
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+Responses
+Code	Description	Links
+200	
+Link revoked successfully
+
+No links
+400	
+Link not found or not authorized
+
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/parent/{parentId}
+Get all links for a parent profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/parent/{parentId}/verified
+Get verified links for a parent profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/student/{studentId}
+Get all links for a student profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/student/{studentId}/verified
+Get verified links for a student profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/{parentId}/{studentId}
+Get a specific link by parent + student profile IDs (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/{id}
+Get a link by ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+PUT
+/api/v1/parent-student-links/{id}
+Update a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "parentId": "507f1f77bcf86cd799439011",
+  "studentId": "507f1f77bcf86cd799439012",
+  "isVerified": true
+}
+Responses
+Code	Description	Links
+200	
+No links
+
+DELETE
+/api/v1/parent-student-links/{id}
+Delete a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links
+List all links (Admin)
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+No links
+
+POST
+/api/v1/parent-student-links
+Create a link manually (Admin)
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "parentId": "507f1f77bcf86cd799439011",
+  "studentId": "507f1f77bcf86cd799439012",
+  "isVerified": false
+}
+Responses
+Code	Description	Links
+201	
+No links
+
+PUT
+/api/v1/parent-student-links/{id}/verify
+Manually verify a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+Rewards (Simple Reward System)
+
+
+GET
+/api/v1/rewards/badges/catalog
+Get badge catalog (all possible badges with requirements)
+
+Returns every badge students can earn, ordered by ascending point threshold.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "badge": "scholar",
+    "label": "Học bá",
+    "description": "Tích lũy đủ 1000 điểm thưởng",
+    "minPoints": 1000
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/rewards/my-rewards
+Get my reward profile (points + badges + next goal)
+
+
+Returns total accumulated points, all unlocked badges, and information about the next badge the student can earn.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "totalPoints": 1250,
+  "badges": [
+    "first_step",
+    "diligent",
+    "scholar"
+  ],
+  "nextBadge": {
+    "badge": "scholar",
+    "label": "Học bá",
+    "description": "Tích lũy đủ 1000 điểm thưởng",
+    "minPoints": 1000
+  },
+  "pointsToNextBadge": 750
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Student profile not found
+
+No links
+
+GET
+/api/v1/rewards/admin/user/{userId}
+View any student's reward profile (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "totalPoints": 1250,
+  "badges": [
+    "first_step",
+    "diligent",
+    "scholar"
+  ],
+  "nextBadge": {
+    "badge": "scholar",
+    "label": "Học bá",
+    "description": "Tích lũy đủ 1000 điểm thưởng",
+    "minPoints": 1000
+  },
+  "pointsToNextBadge": 750
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Student profile not found
+
+No links
+Quiz Attempts
+
+
+GET
+/api/v1/quiz-attempts
+Get all quiz attempts (ADMIN only)
+
+
+Retrieve all quiz attempts in the system with lesson and question details
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Attempts retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "lesson": {
+      "id": "507f1f77bcf86cd799439011",
+      "chapterId": "507f1f77bcf86cd799439012",
+      "title": "Variables and Data Types",
+      "description": "Learn about variables and basic data types",
+      "orderIndex": 0,
+      "video": {
+        "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+        "fileSize": 2097152,
+        "publicId": "lessons/intro_abc123",
+        "durationSeconds": 382
+      },
+      "contentMd": "# Introduction to Variables\n\n...",
+      "isPreview": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    },
+    "answers": [
+      {
+        "questionId": "507f1f77bcf86cd799439012",
+        "selectedAnswer": "A",
+        "isCorrect": true,
+        "timeSpentMs": 5000,
+        "question": {
+          "id": "507f1f77bcf86cd799439011",
+          "lessonId": "507f1f77bcf86cd799439012",
+          "contentHtml": "<p>What is the capital of France?</p>",
+          "type": "MULTIPLE_CHOICE",
+          "difficulty": "MEDIUM",
+          "options": [
+            "Paris",
+            "London",
+            "Berlin",
+            "Madrid"
+          ],
+          "correctAnswer": "0",
+          "explanation": "Paris is the capital of France...",
+          "tags": [
+            "geography",
+            "capitals"
+          ],
+          "points": 10,
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-03-05T10:00:00Z",
+          "updatedAt": "2026-03-05T11:00:00Z"
+        }
+      }
+    ],
+    "score": 85,
+    "totalQuestions": 10,
+    "correctAnswers": 8,
+    "totalTimeSpentMs": 600000,
+    "status": "graded",
+    "submittedAt": "2024-02-26T21:00:00Z",
+    "gradedAt": "2024-02-26T21:30:00Z",
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2024-02-26T20:50:00Z",
+    "updatedAt": "2024-02-26T21:30:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/my-attempts
+Get current user's quiz attempts
+
+
+Retrieve all quiz attempts for the authenticated user with lesson and question details
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Attempts retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "lesson": {
+      "id": "507f1f77bcf86cd799439011",
+      "chapterId": "507f1f77bcf86cd799439012",
+      "title": "Variables and Data Types",
+      "description": "Learn about variables and basic data types",
+      "orderIndex": 0,
+      "video": {
+        "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+        "fileSize": 2097152,
+        "publicId": "lessons/intro_abc123",
+        "durationSeconds": 382
+      },
+      "contentMd": "# Introduction to Variables\n\n...",
+      "isPreview": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    },
+    "answers": [
+      {
+        "questionId": "507f1f77bcf86cd799439012",
+        "selectedAnswer": "A",
+        "isCorrect": true,
+        "timeSpentMs": 5000,
+        "question": {
+          "id": "507f1f77bcf86cd799439011",
+          "lessonId": "507f1f77bcf86cd799439012",
+          "contentHtml": "<p>What is the capital of France?</p>",
+          "type": "MULTIPLE_CHOICE",
+          "difficulty": "MEDIUM",
+          "options": [
+            "Paris",
+            "London",
+            "Berlin",
+            "Madrid"
+          ],
+          "correctAnswer": "0",
+          "explanation": "Paris is the capital of France...",
+          "tags": [
+            "geography",
+            "capitals"
+          ],
+          "points": 10,
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-03-05T10:00:00Z",
+          "updatedAt": "2026-03-05T11:00:00Z"
+        }
+      }
+    ],
+    "score": 85,
+    "totalQuestions": 10,
+    "correctAnswers": 8,
+    "totalTimeSpentMs": 600000,
+    "status": "graded",
+    "submittedAt": "2024-02-26T21:00:00Z",
+    "gradedAt": "2024-02-26T21:30:00Z",
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2024-02-26T20:50:00Z",
+    "updatedAt": "2024-02-26T21:30:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/id/{id}
+Get quiz attempt by ID
+
+
+Retrieve a specific quiz attempt by its ID with lesson and question details
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Attempt ID
+
+507f1f77bcf86cd799439001
+Responses
+Code	Description	Links
+200	
+Attempt retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439001",
+  "userId": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439014",
+  "lesson": {
+    "id": "507f1f77bcf86cd799439011",
+    "chapterId": "507f1f77bcf86cd799439012",
+    "title": "Variables and Data Types",
+    "description": "Learn about variables and basic data types",
+    "orderIndex": 0,
+    "video": {
+      "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+      "fileSize": 2097152,
+      "publicId": "lessons/intro_abc123",
+      "durationSeconds": 382
+    },
+    "contentMd": "# Introduction to Variables\n\n...",
+    "isPreview": false,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  },
+  "answers": [
+    {
+      "questionId": "507f1f77bcf86cd799439012",
+      "selectedAnswer": "A",
+      "isCorrect": true,
+      "timeSpentMs": 5000,
+      "question": {
+        "id": "507f1f77bcf86cd799439011",
+        "lessonId": "507f1f77bcf86cd799439012",
+        "contentHtml": "<p>What is the capital of France?</p>",
+        "type": "MULTIPLE_CHOICE",
+        "difficulty": "MEDIUM",
+        "options": [
+          "Paris",
+          "London",
+          "Berlin",
+          "Madrid"
+        ],
+        "correctAnswer": "0",
+        "explanation": "Paris is the capital of France...",
+        "tags": [
+          "geography",
+          "capitals"
+        ],
+        "points": 10,
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-03-05T10:00:00Z",
+        "updatedAt": "2026-03-05T11:00:00Z"
+      }
+    }
+  ],
+  "score": 85,
+  "totalQuestions": 10,
+  "correctAnswers": 8,
+  "totalTimeSpentMs": 600000,
+  "status": "graded",
+  "submittedAt": "2024-02-26T21:00:00Z",
+  "gradedAt": "2024-02-26T21:30:00Z",
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2024-02-26T20:50:00Z",
+  "updatedAt": "2024-02-26T21:30:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Attempt not found
+
+No links
+
+GET
+/api/v1/quiz-attempts/user/{userId}
+Get a user's quiz attempts (ADMIN only)
+
+
+Retrieve all quiz attempts for a specific user with lesson and question details
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+User ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Attempts retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "lesson": {
+      "id": "507f1f77bcf86cd799439011",
+      "chapterId": "507f1f77bcf86cd799439012",
+      "title": "Variables and Data Types",
+      "description": "Learn about variables and basic data types",
+      "orderIndex": 0,
+      "video": {
+        "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+        "fileSize": 2097152,
+        "publicId": "lessons/intro_abc123",
+        "durationSeconds": 382
+      },
+      "contentMd": "# Introduction to Variables\n\n...",
+      "isPreview": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    },
+    "answers": [
+      {
+        "questionId": "507f1f77bcf86cd799439012",
+        "selectedAnswer": "A",
+        "isCorrect": true,
+        "timeSpentMs": 5000,
+        "question": {
+          "id": "507f1f77bcf86cd799439011",
+          "lessonId": "507f1f77bcf86cd799439012",
+          "contentHtml": "<p>What is the capital of France?</p>",
+          "type": "MULTIPLE_CHOICE",
+          "difficulty": "MEDIUM",
+          "options": [
+            "Paris",
+            "London",
+            "Berlin",
+            "Madrid"
+          ],
+          "correctAnswer": "0",
+          "explanation": "Paris is the capital of France...",
+          "tags": [
+            "geography",
+            "capitals"
+          ],
+          "points": 10,
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-03-05T10:00:00Z",
+          "updatedAt": "2026-03-05T11:00:00Z"
+        }
+      }
+    ],
+    "score": 85,
+    "totalQuestions": 10,
+    "correctAnswers": 8,
+    "totalTimeSpentMs": 600000,
+    "status": "graded",
+    "submittedAt": "2024-02-26T21:00:00Z",
+    "gradedAt": "2024-02-26T21:30:00Z",
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2024-02-26T20:50:00Z",
+    "updatedAt": "2024-02-26T21:30:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/lesson/{lessonId}
+Get all attempts for a lesson quiz (ADMIN/TEACHER only)
+
+
+Retrieve all student attempts for a specific lesson with lesson and question details
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439014
+Responses
+Code	Description	Links
+200	
+Attempts retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "lesson": {
+      "id": "507f1f77bcf86cd799439011",
+      "chapterId": "507f1f77bcf86cd799439012",
+      "title": "Variables and Data Types",
+      "description": "Learn about variables and basic data types",
+      "orderIndex": 0,
+      "video": {
+        "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+        "fileSize": 2097152,
+        "publicId": "lessons/intro_abc123",
+        "durationSeconds": 382
+      },
+      "contentMd": "# Introduction to Variables\n\n...",
+      "isPreview": false,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    },
+    "answers": [
+      {
+        "questionId": "507f1f77bcf86cd799439012",
+        "selectedAnswer": "A",
+        "isCorrect": true,
+        "timeSpentMs": 5000,
+        "question": {
+          "id": "507f1f77bcf86cd799439011",
+          "lessonId": "507f1f77bcf86cd799439012",
+          "contentHtml": "<p>What is the capital of France?</p>",
+          "type": "MULTIPLE_CHOICE",
+          "difficulty": "MEDIUM",
+          "options": [
+            "Paris",
+            "London",
+            "Berlin",
+            "Madrid"
+          ],
+          "correctAnswer": "0",
+          "explanation": "Paris is the capital of France...",
+          "tags": [
+            "geography",
+            "capitals"
+          ],
+          "points": 10,
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-03-05T10:00:00Z",
+          "updatedAt": "2026-03-05T11:00:00Z"
+        }
+      }
+    ],
+    "score": 85,
+    "totalQuestions": 10,
+    "correctAnswers": 8,
+    "totalTimeSpentMs": 600000,
+    "status": "graded",
+    "submittedAt": "2024-02-26T21:00:00Z",
+    "gradedAt": "2024-02-26T21:30:00Z",
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2024-02-26T20:50:00Z",
+    "updatedAt": "2024-02-26T21:30:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/best/lesson/{lessonId}
+Get current user's best attempt for a lesson quiz
+
+
+Retrieve the highest scoring attempt for the authenticated user in a specific lesson with lesson and question details
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439014
+Responses
+Code	Description	Links
+200	
+Best attempt retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439001",
+  "userId": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439014",
+  "lesson": {
+    "id": "507f1f77bcf86cd799439011",
+    "chapterId": "507f1f77bcf86cd799439012",
+    "title": "Variables and Data Types",
+    "description": "Learn about variables and basic data types",
+    "orderIndex": 0,
+    "video": {
+      "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+      "fileSize": 2097152,
+      "publicId": "lessons/intro_abc123",
+      "durationSeconds": 382
+    },
+    "contentMd": "# Introduction to Variables\n\n...",
+    "isPreview": false,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  },
+  "answers": [
+    {
+      "questionId": "507f1f77bcf86cd799439012",
+      "selectedAnswer": "A",
+      "isCorrect": true,
+      "timeSpentMs": 5000,
+      "question": {
+        "id": "507f1f77bcf86cd799439011",
+        "lessonId": "507f1f77bcf86cd799439012",
+        "contentHtml": "<p>What is the capital of France?</p>",
+        "type": "MULTIPLE_CHOICE",
+        "difficulty": "MEDIUM",
+        "options": [
+          "Paris",
+          "London",
+          "Berlin",
+          "Madrid"
+        ],
+        "correctAnswer": "0",
+        "explanation": "Paris is the capital of France...",
+        "tags": [
+          "geography",
+          "capitals"
+        ],
+        "points": 10,
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-03-05T10:00:00Z",
+        "updatedAt": "2026-03-05T11:00:00Z"
+      }
+    }
+  ],
+  "score": 85,
+  "totalQuestions": 10,
+  "correctAnswers": 8,
+  "totalTimeSpentMs": 600000,
+  "status": "graded",
+  "submittedAt": "2024-02-26T21:00:00Z",
+  "gradedAt": "2024-02-26T21:30:00Z",
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2024-02-26T20:50:00Z",
+  "updatedAt": "2024-02-26T21:30:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+No attempts found for this lesson
+
+No links
+
+GET
+/api/v1/quiz-attempts/stats/me
+Get current user's quiz statistics
+
+
+Retrieve aggregate statistics for the authenticated user
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Statistics retrieved successfully
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/stats/lesson/{lessonId}
+Get lesson quiz statistics (ADMIN/TEACHER only)
+
+
+Retrieve aggregate statistics for all attempts in a lesson quiz
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439014
+Responses
+Code	Description	Links
+200	
+Statistics retrieved successfully
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/quiz-attempts/can-retry/lesson/{lessonId}
+Check if current user can retry lesson quiz
+
+
+Determine if the authenticated user has remaining attempts for a lesson quiz
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439014
+maxAttempts
+number
+(query)
+Maximum allowed attempts (default: 3)
+
+3
+Responses
+Code	Description	Links
+200	
+Retry eligibility checked
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+PUT
+/api/v1/quiz-attempts/{id}
+Update quiz attempt (ADMIN only)
+
+
+Update attempt score, status, or other details
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Attempt ID
+
+507f1f77bcf86cd799439001
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "score": 90,
+  "correctAnswers": 9,
+  "status": "graded",
+  "gradingNotes": "Good effort, review question 5"
+}
+Responses
+Code	Description	Links
+200	
+Attempt updated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439001",
+  "userId": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439014",
+  "answers": [
+    {
+      "questionId": "507f1f77bcf86cd799439012",
+      "selectedAnswer": "A",
+      "isCorrect": true,
+      "timeSpentMs": 5000
+    }
+  ],
+  "score": 85,
+  "totalQuestions": 10,
+  "correctAnswers": 8,
+  "totalTimeSpentMs": 600000,
+  "status": "graded",
+  "submittedAt": "2024-02-26T21:00:00Z",
+  "gradedAt": "2024-02-26T21:30:00Z",
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2024-02-26T20:50:00Z",
+  "updatedAt": "2024-02-26T21:30:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Attempt not found
+
+No links
+
+DELETE
+/api/v1/quiz-attempts/{id}
+Delete quiz attempt (ADMIN only)
+
+
+Soft-delete a quiz attempt
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Attempt ID
+
+507f1f77bcf86cd799439001
+Responses
+Code	Description	Links
+200	
+Attempt deleted successfully
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Attempt not found
+
+No links
+Questions
+
+
+POST
+/api/v1/questions
+Create a new question (TEACHER/ADMIN only)
+
+
+Create a new quiz question. Only teachers and administrators can create questions.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "lessonId": "507f1f77bcf86cd799439011",
+  "contentHtml": "<p>What is the capital of France?</p>",
+  "type": "MULTIPLE_CHOICE",
+  "difficulty": "MEDIUM",
+  "options": [
+    "Paris",
+    "London",
+    "Berlin",
+    "Madrid"
+  ],
+  "correctAnswer": "0",
+  "explanation": "Paris is the capital city of France, located in the north-central part of the country.",
+  "tags": [
+    "geography",
+    "capitals",
+    "europe"
+  ],
+  "points": 10
+}
+Responses
+Code	Description	Links
+201	
+Question created successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439012",
+  "contentHtml": "<p>What is the capital of France?</p>",
+  "type": "MULTIPLE_CHOICE",
+  "difficulty": "MEDIUM",
+  "options": [
+    "Paris",
+    "London",
+    "Berlin",
+    "Madrid"
+  ],
+  "correctAnswer": "0",
+  "explanation": "Paris is the capital of France...",
+  "tags": [
+    "geography",
+    "capitals"
+  ],
+  "points": 10,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+400	
+Bad request - Invalid question data
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions
+Get all questions
+
+Retrieve all questions in the system
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/lesson/{lessonId}
+Get questions by lesson
+
+Retrieve all questions associated with a specific lesson
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/difficulty/{difficulty}
+Get questions by difficulty level
+
+Retrieve all questions of a specific difficulty level
+
+Parameters
+Try it out
+Name	Description
+difficulty *
+string
+(path)
+Difficulty level
+
+Available values : EASY, MEDIUM, HARD
+
+
+EASY
+Responses
+Code	Description	Links
+200	
+Questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/tag/{tag}
+Get questions by tag
+
+Retrieve all questions with a specific tag
+
+Parameters
+Try it out
+Name	Description
+tag *
+string
+(path)
+Tag name
+
+geography
+Responses
+Code	Description	Links
+200	
+Questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/random/questions
+Get random questions
+
+Retrieve random questions from the system
+
+Parameters
+Try it out
+Name	Description
+limit
+number
+(query)
+Number of random questions (default: 5)
+
+10
+Responses
+Code	Description	Links
+200	
+Random questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/random/difficulty/{difficulty}
+Get random questions by difficulty
+
+Retrieve random questions of a specific difficulty level
+
+Parameters
+Try it out
+Name	Description
+difficulty *
+string
+(path)
+Difficulty level
+
+Available values : EASY, MEDIUM, HARD
+
+
+EASY
+limit
+number
+(query)
+Number of questions (default: 5)
+
+10
+Responses
+Code	Description	Links
+200	
+Questions retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "lessonId": "507f1f77bcf86cd799439012",
+    "contentHtml": "<p>What is the capital of France?</p>",
+    "type": "MULTIPLE_CHOICE",
+    "difficulty": "MEDIUM",
+    "options": [
+      "Paris",
+      "London",
+      "Berlin",
+      "Madrid"
+    ],
+    "correctAnswer": "0",
+    "explanation": "Paris is the capital of France...",
+    "tags": [
+      "geography",
+      "capitals"
+    ],
+    "points": 10,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/questions/id/{id}
+Get question by ID
+
+Retrieve a specific question by its ID
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Question ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Question retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439012",
+  "contentHtml": "<p>What is the capital of France?</p>",
+  "type": "MULTIPLE_CHOICE",
+  "difficulty": "MEDIUM",
+  "options": [
+    "Paris",
+    "London",
+    "Berlin",
+    "Madrid"
+  ],
+  "correctAnswer": "0",
+  "explanation": "Paris is the capital of France...",
+  "tags": [
+    "geography",
+    "capitals"
+  ],
+  "points": 10,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Question not found
+
+No links
+
+PUT
+/api/v1/questions/{id}
+Update a question (TEACHER/ADMIN only)
+
+
+Update an existing question. Only teachers and administrators can update questions.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Question ID
+
+507f1f77bcf86cd799439011
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "contentHtml": "<p>Updated question content</p>",
+  "type": "MULTIPLE_CHOICE",
+  "difficulty": "EASY",
+  "options": [
+    "Option 1",
+    "Option 2",
+    "Option 3"
+  ],
+  "correctAnswer": "0",
+  "explanation": "This is why the answer is correct...",
+  "tags": [
+    "tag1",
+    "tag2"
+  ],
+  "points": 15
+}
+Responses
+Code	Description	Links
+200	
+Question updated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "lessonId": "507f1f77bcf86cd799439012",
+  "contentHtml": "<p>What is the capital of France?</p>",
+  "type": "MULTIPLE_CHOICE",
+  "difficulty": "MEDIUM",
+  "options": [
+    "Paris",
+    "London",
+    "Berlin",
+    "Madrid"
+  ],
+  "correctAnswer": "0",
+  "explanation": "Paris is the capital of France...",
+  "tags": [
+    "geography",
+    "capitals"
+  ],
+  "points": 10,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+400	
+Bad request - Invalid update data
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Question not found
+
+No links
+
+DELETE
+/api/v1/questions/{id}
+Delete a question (ADMIN only)
+
+
+Soft-delete a question. Only administrators can delete questions.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Question ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Question deleted successfully
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Question not found
+
+No links
+Lessons
+
+
+POST
+/api/v1/lessons
+Create a new lesson (TEACHER/ADMIN only)
+
+
+Create a new lesson within a chapter. Only teachers and administrators can create lessons.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "chapterId": "507f1f77bcf86cd799439011",
+  "title": "Variables and Data Types",
+  "description": "Learn about variables and basic data types in programming",
+  "orderIndex": 0,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Introduction to Variables\n\nVariables are used to store data...",
+  "isPreview": false
+}
+Responses
+Code	Description	Links
+201	
+Lesson created successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "chapterId": "507f1f77bcf86cd799439012",
+  "title": "Variables and Data Types",
+  "description": "Learn about variables and basic data types",
+  "orderIndex": 0,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Introduction to Variables\n\n...",
+  "isPreview": false,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+400	
+Bad request - Invalid lesson data
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/lessons
+Get all lessons
+
+Retrieve all lessons in the system
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Lessons retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "chapterId": "507f1f77bcf86cd799439012",
+    "title": "Variables and Data Types",
+    "description": "Learn about variables and basic data types",
+    "orderIndex": 0,
+    "video": {
+      "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+      "fileSize": 2097152,
+      "publicId": "lessons/intro_abc123",
+      "durationSeconds": 382
+    },
+    "contentMd": "# Introduction to Variables\n\n...",
+    "isPreview": false,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/lessons/chapter/{chapterId}
+Get all lessons in a chapter (ordered)
+
+Retrieve all lessons in a specific chapter, ordered by lesson index
+
+Parameters
+Try it out
+Name	Description
+chapterId *
+string
+(path)
+Chapter ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Lessons retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "chapterId": "507f1f77bcf86cd799439012",
+    "title": "Variables and Data Types",
+    "description": "Learn about variables and basic data types",
+    "orderIndex": 0,
+    "video": {
+      "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+      "fileSize": 2097152,
+      "publicId": "lessons/intro_abc123",
+      "durationSeconds": 382
+    },
+    "contentMd": "# Introduction to Variables\n\n...",
+    "isPreview": false,
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T11:00:00Z"
+  }
+]
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+
+GET
+/api/v1/lessons/{id}
+Get lesson by ID
+
+Retrieve a specific lesson by its ID
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Lesson retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "chapterId": "507f1f77bcf86cd799439012",
+  "title": "Variables and Data Types",
+  "description": "Learn about variables and basic data types",
+  "orderIndex": 0,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Introduction to Variables\n\n...",
+  "isPreview": false,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Lesson not found
+
+No links
+
+PUT
+/api/v1/lessons/{id}
+Update a lesson (TEACHER/ADMIN only)
+
+
+Update an existing lesson. Only teachers and administrators can update lessons.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439011
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "title": "Advanced Variables",
+  "description": "Advanced lessons on variables and scope",
+  "orderIndex": 2,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Advanced Variables\n\nDetailed content...",
+  "isPreview": true
+}
+Responses
+Code	Description	Links
+200	
+Lesson updated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "chapterId": "507f1f77bcf86cd799439012",
+  "title": "Variables and Data Types",
+  "description": "Learn about variables and basic data types",
+  "orderIndex": 0,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Introduction to Variables\n\n...",
+  "isPreview": false,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+400	
+Bad request - Invalid update data
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Lesson not found
+
+No links
+
+DELETE
+/api/v1/lessons/{id}
+Delete a lesson (ADMIN only)
+
+
+Soft-delete a lesson. Only administrators can delete lessons.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Lesson ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Lesson deleted successfully
+
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+Lesson not found
+
+No links
+
+GET
+/api/v1/lessons/{id}/next
+Get next lesson in chapter sequence
+
+Retrieve the next lesson after the current one in chapter order
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Current lesson ID
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Next lesson retrieved
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "chapterId": "507f1f77bcf86cd799439012",
+  "title": "Variables and Data Types",
+  "description": "Learn about variables and basic data types",
+  "orderIndex": 0,
+  "video": {
+    "url": "https://res.cloudinary.com/your-account/video/upload/v1234567890/lessons/intro.mp4",
+    "fileSize": 2097152,
+    "publicId": "lessons/intro_abc123",
+    "durationSeconds": 382
+  },
+  "contentMd": "# Introduction to Variables\n\n...",
+  "isPreview": false,
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T11:00:00Z"
+}
+No links
+401	
+Unauthorized - Invalid or missing JWT token
+
+No links
+403	
+Forbidden - Insufficient permissions
+
+No links
+404	
+No next lesson available
+
+No links
+Wrong-Answer Bank (Review)
+
+
+GET
+/api/v1/wrong-answers/my-bank
+Get my wrong-answer bank (all wrong questions with details)
+
+
+Returns every question the student has answered incorrectly, enriched with full question data. Use ?isMastered=false to see only items still needing practice.
+
+Parameters
+Try it out
+Name	Description
+isMastered
+boolean
+(query)
+Filter by mastery status. Omit for all, false = unresolved, true = mastered.
+
+
+false
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "questionId": "507f1f77bcf86cd799439022",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "failCount": 3,
+    "lastFailedAt": "2026-03-08T10:00:00Z",
+    "isMastered": false,
+    "masteredAt": null,
+    "isDeleted": false,
+    "deletedAt": {},
+    "createdAt": "2026-03-08T10:00:00Z",
+    "updatedAt": "2026-03-08T10:00:00Z",
+    "question": {
+      "id": "507f1f77bcf86cd799439011",
+      "lessonId": "507f1f77bcf86cd799439012",
+      "contentHtml": "<p>What is the capital of France?</p>",
+      "type": "MULTIPLE_CHOICE",
+      "difficulty": "MEDIUM",
+      "options": [
+        "Paris",
+        "London",
+        "Berlin",
+        "Madrid"
+      ],
+      "correctAnswer": "0",
+      "explanation": "Paris is the capital of France...",
+      "tags": [
+        "geography",
+        "capitals"
+      ],
+      "points": 10,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    }
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/wrong-answers/my-bank/stats
+Get statistics for my wrong-answer bank
+
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "total": 20,
+  "mastered": 8,
+  "remaining": 12,
+  "masteryRate": 40
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/wrong-answers/my-bank/lesson/{lessonId}
+Get my wrong-answer bank filtered by lesson
+
+
+Returns wrong questions from a specific lesson only.
+
+Parameters
+Try it out
+Name	Description
+lessonId *
+string
+(path)
+507f1f77bcf86cd799439014
+isMastered
+boolean
+(query)
+Omit for all, false = unresolved only, true = mastered only.
+
+
+--
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "questionId": "507f1f77bcf86cd799439022",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "failCount": 3,
+    "lastFailedAt": "2026-03-08T10:00:00Z",
+    "isMastered": false,
+    "masteredAt": null,
+    "isDeleted": false,
+    "deletedAt": {},
+    "createdAt": "2026-03-08T10:00:00Z",
+    "updatedAt": "2026-03-08T10:00:00Z",
+    "question": {
+      "id": "507f1f77bcf86cd799439011",
+      "lessonId": "507f1f77bcf86cd799439012",
+      "contentHtml": "<p>What is the capital of France?</p>",
+      "type": "MULTIPLE_CHOICE",
+      "difficulty": "MEDIUM",
+      "options": [
+        "Paris",
+        "London",
+        "Berlin",
+        "Madrid"
+      ],
+      "correctAnswer": "0",
+      "explanation": "Paris is the capital of France...",
+      "tags": [
+        "geography",
+        "capitals"
+      ],
+      "points": 10,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    }
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+POST
+/api/v1/wrong-answers/practice
+Submit practice answers for wrong-answer bank questions
+
+
+Grade a practice session. Correct answers mark the question as mastered. Wrong answers increment failCount. Returns per-question feedback.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "answers": [
+    {
+      "questionId": "507f1f77bcf86cd799439022",
+      "selectedAnswer": "0"
+    }
+  ]
+}
+Responses
+Code	Description	Links
+201	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "results": [
+    {
+      "questionId": "507f1f77bcf86cd799439022",
+      "isCorrect": true,
+      "isMastered": true,
+      "correctAnswer": "0",
+      "selectedAnswer": "0",
+      "explanation": "Paris is the capital of France because…"
+    }
+  ],
+  "totalAnswered": 5,
+  "correctCount": 3,
+  "masteredCount": 2,
+  "remainingWrong": 2
+}
+No links
+400	
+Bad request — empty answers array
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+404	
+Question not found
+
+No links
+
+GET
+/api/v1/wrong-answers/admin/user/{userId}
+View any student's wrong-answer bank (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+507f1f77bcf86cd799439011
+isMastered
+boolean
+(query)
+Omit for all, false = unresolved only, true = mastered only.
+
+
+--
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439001",
+    "userId": "507f1f77bcf86cd799439011",
+    "questionId": "507f1f77bcf86cd799439022",
+    "lessonId": "507f1f77bcf86cd799439014",
+    "failCount": 3,
+    "lastFailedAt": "2026-03-08T10:00:00Z",
+    "isMastered": false,
+    "masteredAt": null,
+    "isDeleted": false,
+    "deletedAt": {},
+    "createdAt": "2026-03-08T10:00:00Z",
+    "updatedAt": "2026-03-08T10:00:00Z",
+    "question": {
+      "id": "507f1f77bcf86cd799439011",
+      "lessonId": "507f1f77bcf86cd799439012",
+      "contentHtml": "<p>What is the capital of France?</p>",
+      "type": "MULTIPLE_CHOICE",
+      "difficulty": "MEDIUM",
+      "options": [
+        "Paris",
+        "London",
+        "Berlin",
+        "Madrid"
+      ],
+      "correctAnswer": "0",
+      "explanation": "Paris is the capital of France...",
+      "tags": [
+        "geography",
+        "capitals"
+      ],
+      "points": 10,
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-03-05T10:00:00Z",
+      "updatedAt": "2026-03-05T11:00:00Z"
+    }
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+GET
+/api/v1/wrong-answers/admin/user/{userId}/stats
+Get statistics for a student's wrong-answer bank (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+userId *
+string
+(path)
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "total": 20,
+  "mastered": 8,
+  "remaining": 12,
+  "masteryRate": 40
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+
+DELETE
+/api/v1/wrong-answers/admin/{id}
+Soft-delete a wrong-answer record (Admin only)
+
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+507f1f77bcf86cd799439001
+Responses
+Code	Description	Links
+200	
+Record deleted successfully
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden
+
+No links
+Subjects
+
+
+GET
+/api/v1/subjects
+List subjects with pagination, filters and sort (public)
+
+Supports JSON-encoded filters and sort query params. Example: ?filters={"name":"toÃ¡n"}&sort=[{"orderBy":"createdAt","order":"desc"}]
+
+Parameters
+Try it out
+Name	Description
+page
+number
+(query)
+Default value : 1
+
+1
+limit
+number
+(query)
+Default value : 10
+
+10
+filters
+string
+(query)
+JSON-encoded FilterSubjectDto. Example: {"name":"toán","isDeleted":false}
+
+{"name":"toán"}
+sort
+string
+(query)
+JSON-encoded SortSubjectDto[]. Example: [{"orderBy":"name","order":"asc"}]
+
+[{"orderBy":"createdAt","order":"desc"}]
+Responses
+Code	Description	Links
+200	
+Subjects retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "65f7d8b2b58d59f90cf59225",
+    "name": "Toán Học",
+    "slug": "toan-hoc",
+    "iconUrl": {
+      "publicId": "edutech/subjects/xk8v3t2abcdef",
+      "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+    },
+    "isDeleted": false,
+    "deletedAt": null,
+    "createdAt": "2026-03-03T10:00:00.000Z",
+    "updatedAt": "2026-03-03T10:30:00.000Z"
+  }
+]
+No links
+
+POST
+/api/v1/subjects
+Create a new subject (Admin / Teacher only)
+
+
+Slug is auto-generated from the name field (supports Vietnamese). Upload the icon first via POST /uploads?subfolder=subjects and pass the returned publicId + url as the iconUrl object.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Toán Học",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  }
+}
+Responses
+Code	Description	Links
+201	
+Subject created successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "65f7d8b2b58d59f90cf59225",
+  "name": "Toán Học",
+  "slug": "toan-hoc",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  },
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-03T10:00:00.000Z",
+  "updatedAt": "2026-03-03T10:30:00.000Z"
+}
+No links
+400	
+Validation error
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden â€” Admin or Teacher role required
+
+No links
+
+GET
+/api/v1/subjects/slug/{slug}
+Get subject by slug (public)
+
+Parameters
+Try it out
+Name	Description
+slug *
+string
+(path)
+Subject slug
+
+toan-hoc
+Responses
+Code	Description	Links
+200	
+Subject retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "65f7d8b2b58d59f90cf59225",
+  "name": "Toán Học",
+  "slug": "toan-hoc",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  },
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-03T10:00:00.000Z",
+  "updatedAt": "2026-03-03T10:30:00.000Z"
+}
+No links
+404	
+Subject not found
+
+No links
+
+GET
+/api/v1/subjects/{id}
+Get subject by ID (public)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Subject MongoDB ID
+
+id
+Responses
+Code	Description	Links
+200	
+Subject retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "65f7d8b2b58d59f90cf59225",
+  "name": "Toán Học",
+  "slug": "toan-hoc",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  },
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-03T10:00:00.000Z",
+  "updatedAt": "2026-03-03T10:30:00.000Z"
+}
+No links
+404	
+Subject not found
+
+No links
+
+PUT
+/api/v1/subjects/{id}
+Update a subject (Admin / Teacher only)
+
+
+Slug is automatically regenerated when name changes. To update the icon upload a new file via POST /uploads first.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Subject MongoDB ID
+
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Toán Học Nâng Cao",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  }
+}
+Responses
+Code	Description	Links
+200	
+Subject updated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "65f7d8b2b58d59f90cf59225",
+  "name": "Toán Học",
+  "slug": "toan-hoc",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  },
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-03T10:00:00.000Z",
+  "updatedAt": "2026-03-03T10:30:00.000Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden â€” Admin or Teacher role required
+
+No links
+404	
+Subject not found
+
+No links
+
+DELETE
+/api/v1/subjects/{id}
+Soft-delete a subject (Admin only)
+
+
+Sets isDeleted=true and deletedAt=now. Record is hidden from all public endpoints. Use POST /:id/restore to undo.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Subject MongoDB ID
+
+id
+Responses
+Code	Description	Links
+200	
+Subject soft-deleted successfully
+
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden â€” Admin role required
+
+No links
+404	
+Subject not found
+
+No links
+
+POST
+/api/v1/subjects/{id}/restore
+Restore a soft-deleted subject (Admin only)
+
+
+Sets isDeleted=false and deletedAt=null.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Subject MongoDB ID
+
+id
+Responses
+Code	Description	Links
+200	
+Subject restored successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "65f7d8b2b58d59f90cf59225",
+  "name": "Toán Học",
+  "slug": "toan-hoc",
+  "iconUrl": {
+    "publicId": "edutech/subjects/xk8v3t2abcdef",
+    "url": "https://res.cloudinary.com/my-cloud/image/upload/v1234/edutech/subjects/xk8v3t2abcdef.svg"
+  },
+  "isDeleted": false,
+  "deletedAt": null,
+  "createdAt": "2026-03-03T10:00:00.000Z",
+  "updatedAt": "2026-03-03T10:30:00.000Z"
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden â€” Admin role required
+
+No links
+404	
+Subject not found or not deleted
+
+No links
+Grade Levels
+
+
+POST
+/api/v1/grade-levels
+Create a new grade level (ADMIN only)
+
+
+Create a new grade level in the system. Only administrators can perform this action.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Grade 10",
+  "value": 10
+}
+Responses
+Code	Description	Links
+201	
+Grade level created successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "name": "Grade 10",
+  "value": 10,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T10:00:00Z"
+}
+No links
+400	
+Validation error or grade level already exists
+
+No links
+401	
+Unauthorized - no JWT token provided
+
+No links
+403	
+Forbidden - insufficient permissions (not an admin)
+
+No links
+
+GET
+/api/v1/grade-levels
+Get all grade levels
+
+Retrieve a list of all grade levels in the system. No authentication required.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+List of grade levels retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "name": "Grade 10",
+    "value": 10,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T10:00:00Z"
+  }
+]
+No links
+
+GET
+/api/v1/grade-levels/{id}
+Get grade level by ID
+
+Retrieve a specific grade level by its ID. No authentication required.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Grade level MongoDB ObjectId
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Grade level retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "name": "Grade 10",
+  "value": 10,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T10:00:00Z"
+}
+No links
+404	
+Grade level not found
+
+No links
+
+PUT
+/api/v1/grade-levels/{id}
+Update a grade level (ADMIN only)
+
+
+Update specific fields of a grade level. Only administrators can perform this action.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Grade level MongoDB ObjectId
+
+507f1f77bcf86cd799439011
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "name": "Grade 10 - Advanced",
+  "value": 11
+}
+Responses
+Code	Description	Links
+200	
+Grade level updated successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "name": "Grade 10",
+  "value": 10,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T10:00:00Z"
+}
+No links
+400	
+Validation error or duplicate name/value
+
+No links
+401	
+Unauthorized - no JWT token provided
+
+No links
+403	
+Forbidden - insufficient permissions (not an admin)
+
+No links
+404	
+Grade level not found
+
+No links
+
+DELETE
+/api/v1/grade-levels/{id}
+Delete a grade level (ADMIN only)
+
+
+Permanently delete a grade level from the system. Only administrators can perform this action.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+Grade level MongoDB ObjectId
+
+507f1f77bcf86cd799439011
+Responses
+Code	Description	Links
+200	
+Grade level deleted successfully
+
+No links
+401	
+Unauthorized - no JWT token provided
+
+No links
+403	
+Forbidden - insufficient permissions (not an admin)
+
+No links
+404	
+Grade level not found
+
+No links
+
+GET
+/api/v1/grade-levels/value/{value}
+Get grade level by numeric value
+
+Retrieve a grade level by its numeric value (0-12). Useful for querying by grade. No authentication required.
+
+Parameters
+Try it out
+Name	Description
+value *
+string
+(path)
+Numeric grade level value (0-12)
+
+10
+Responses
+Code	Description	Links
+200	
+Grade level retrieved successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "id": "507f1f77bcf86cd799439011",
+  "name": "Grade 10",
+  "value": 10,
+  "createdAt": "2026-03-05T10:00:00Z",
+  "updatedAt": "2026-03-05T10:00:00Z"
+}
+No links
+404	
+Grade level with that value not found
+
+No links
+
+POST
+/api/v1/grade-levels/seed/data
+Seed 12 Vietnamese grade levels (ADMIN only)
+
+
+Populate the database with 12 grade levels (Mầm non, Lớp 1-12) for the Vietnamese education system. Only call once during initialization. Only administrators can perform this action.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+201	
+12 grade levels created successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "id": "507f1f77bcf86cd799439011",
+    "name": "Grade 10",
+    "value": 10,
+    "createdAt": "2026-03-05T10:00:00Z",
+    "updatedAt": "2026-03-05T10:00:00Z"
+  }
+]
+No links
+400	
+Grade levels already exist in the database
+
+No links
+401	
+Unauthorized - no JWT token provided
+
+No links
+403	
+Forbidden - insufficient permissions (not an admin)
+
+No links
+Courses
+
+
+GET
+/api/v1/courses/personalized
+Get grade-filtered published courses for the logged-in student
+
+
+
+GET
+/api/v1/courses
+Get published courses — paginated, filterable, sortable (public)
+
+
+POST
+/api/v1/courses
+Create a new course (Admin/Teacher only)
+
+
+
+GET
+/api/v1/courses/admin
+Get all courses — all statuses + soft-deleted (Admin only)
+
+
+
+GET
+/api/v1/courses/my-courses
+Get courses created by the authenticated teacher
+
+
+
+GET
+/api/v1/courses/{id}
+Get course by ID
+
+
+PUT
+/api/v1/courses/{id}
+Update course (Admin/Teacher only)
+
+
+
+DELETE
+/api/v1/courses/{id}
+Soft delete course (Admin/Teacher only)
+
+
+
+PUT
+/api/v1/courses/{id}/status
+Update course status directly (Admin only)
+
+
+
+PUT
+/api/v1/courses/{id}/restore
+Restore soft deleted course (Admin/Teacher only)
+
+
+
+PATCH
+/api/v1/courses/{id}/submit-review
+Submit course for Admin review (Teacher only)
+
+
+
+PATCH
+/api/v1/courses/{id}/approve
+Approve a course (Admin only)
+
+
+
+PATCH
+/api/v1/courses/{id}/reject
+Reject a course (Admin only)
+
+
+Chapters
+
+
+POST
+/api/v1/chapters
+Create a new chapter (Teacher/Admin only)
+
+
+
+GET
+/api/v1/chapters
+List chapters — paginated, filterable, sortable (all roles, STUDENT sees published only)
+
+
+
+GET
+/api/v1/chapters/admin/stats
+Get chapter statistics (Admin only)
+
+
+
+GET
+/api/v1/chapters/{id}
+Get chapter by ID (all authenticated users)
+
+
+
+PUT
+/api/v1/chapters/{id}
+Update chapter by ID (Teacher/Admin only)
+
+
+
+DELETE
+/api/v1/chapters/{id}
+Soft-delete chapter by ID (Admin only)
+
+
+
+GET
+/api/v1/chapters/course/{courseId}
+Get all chapters in a course (all authenticated users)
+
+
+
+PATCH
+/api/v1/chapters/{id}/publish-status
+Update chapter publish status explicitly (Teacher/Admin only)
+
+
+
+PUT
+/api/v1/chapters/course/{courseId}/reorder
+Reorder chapters in a course — update orderIndex (Teacher/Admin only)
+
+
+Materials
+
+
+POST
+/api/v1/materials
+Create a new material (TEACHER/ADMIN only)
+
+
+
+GET
+/api/v1/materials
+Get all materials
+
+
+GET
+/api/v1/materials/lesson/{lessonId}
+Get all materials for a lesson
+
+
+GET
+/api/v1/materials/{id}
+Get material by ID
+
+
+PUT
+/api/v1/materials/{id}
+Update a material (TEACHER/ADMIN only)
+
+
+
+DELETE
+/api/v1/materials/{id}
+Delete a material (ADMIN only)
+
+
+
+PATCH
+/api/v1/materials/{id}/download
+Record material download
+
+Notification
+
+
+GET
+/api/v1/notifications/user/{userId}
+
+
+DELETE
+/api/v1/notifications/user/{userId}
+
+
+GET
+/api/v1/notifications/user/{userId}/unread-count
+
+
+GET
+/api/v1/notifications/{id}
+
+
+DELETE
+/api/v1/notifications/{id}
+
+
+GET
+/api/v1/notifications
+
+
+POST
+/api/v1/notifications
+
+
+PUT
+/api/v1/notifications/{id}/mark-as-read
+
+
+PUT
+/api/v1/notifications/mark-multiple-as-read
+
+Learning Path
+
+
+POST
+/api/v1/Learning Path/unlock-lesson/{lessonId}
+Check if lesson can be unlocked based on prerequisites
+
+
+Sequential Learning
+
+
+GET
+/api/v1/sequential-learning/curriculum/{courseId}
+Get course curriculum tree with per-lesson lock / progress status
+
+
+
+POST
+/api/v1/sequential-learning/video/{lessonId}/progress
+Send video watch progress (heartbeat every ~10 s)
+
+
+
+POST
+/api/v1/sequential-learning/track-video
+[Legacy] Track video watching progress
+
+
+
+POST
+/api/v1/sequential-learning/video/{lessonId}/complete
+Mark video as fully watched (fires when player ends)
+
+
+
+GET
+/api/v1/sequential-learning/lesson/{lessonId}/questions
+Fetch quiz questions for a lesson (student-safe, no correct answers)
+
+
+
+POST
+/api/v1/sequential-learning/lesson/{lessonId}/submit-quiz
+Submit quiz answers and receive graded result
+
+
+
+GET
+/api/v1/sequential-learning/lesson/{lessonId}/status
+Get full lesson status (lock state, progress, quiz result)
+
+
+
+GET
+/api/v1/sequential-learning/lesson/{lessonId}/quiz-access
+Check whether the student may access the quiz
+
+
+dashboard
+
+
+GET
+/api/v1/dashboard
+Get user dashboard with learning progress overview
+
+
+
+GET
+/api/v1/dashboard/stats
+Get detailed learning statistics
+
+
+Uploads
+
+
+POST
+/api/v1/uploads
+Upload a file to Cloudinary
+
+
+
+DELETE
+/api/v1/uploads
+Delete a file from Cloudinary (Admin only)
+
+
+Smart Search
+
+
+GET
+/api/v1/search
+Search lessons and materials by keyword
+
+
+AI Assistant
+
+
+POST
+/api/v1/ai-assistant/ask
+Ask the AI tutor to solve a homework problem (single-shot)
+
+
+
+POST
+/api/v1/ai-assistant/chat
+Send a chat message (multi-turn conversation with history)
+
+
+
+GET
+/api/v1/ai-assistant/conversations
+List my conversations (paginated, newest first)
+
+
+
+GET
+/api/v1/ai-assistant/conversations/{id}
+Get a conversation with full message history
+
+
+
+DELETE
+/api/v1/ai-assistant/conversations/{id}
+Delete a conversation (soft-delete)
+
+
+
+POST
+/api/v1/ai-assistant/training
+Create a training data entry (Teacher / Admin)
+
+
+
+GET
+/api/v1/ai-assistant/training
+List training data (filterable by status, subject)
+
+
+
+GET
+/api/v1/ai-assistant/training/stats
+Get training data statistics (Admin only)
+
+
+
+GET
+/api/v1/ai-assistant/training/export
+Export approved training data as JSONL for OpenAI fine-tuning
+
+
+
+PATCH
+/api/v1/ai-assistant/training/{id}/review
+Approve or reject a training data entry (Admin only)
+
+
+
+POST
+/api/v1/ai-assistant/training/train
+Train AI model — vectorise all approved training data (Gemini Embedding API)
+
+
+
+DELETE
+/api/v1/ai-assistant/training/{id}
+Delete training data (soft-delete, Admin only)
+
+
+Exams
+
+
+POST
+/api/v1/exams
+Create a new exam (Teacher / Admin)
+
+
+
+GET
+/api/v1/exams
+List exams — paginated, filterable, sortable
+
+
+
+GET
+/api/v1/exams/{id}
+Get exam metadata by ID
+
+
+
+PUT
+/api/v1/exams/{id}
+Update an exam (Teacher / Admin)
+
+
+
+DELETE
+/api/v1/exams/{id}
+Soft-delete an exam (Admin only)
+
+
+
+GET
+/api/v1/exams/{id}/start
+Start an exam — get questions without answers (Step 1)
+
+
+
+POST
+/api/v1/exams/{id}/submit
+Submit exam answers — instant grading (Step 2)
+
+
+
+GET
+/api/v1/exams/{id}/my-attempts
+List the current student's attempts for an exam
+
+
+
+GET
+/api/v1/exams/attempts/{attemptId}/result
+Get full result for a specific attempt (Step 3)
+
+
+
+GET
+/api/v1/exams/{id}/attempts
+List all attempts for an exam (Teacher / Admin)
+
+
+Payments
+
+
+POST
+/api/v1/payments/admin/seed-plans
+Seed default subscription plans (Admin only)
+
+
+Idempotent seed API for Free, Pro Monthly, Pro Yearly plans. If a plan exists by name, it will be updated to latest defaults.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+201	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "created": [
+    "free",
+    "pro_monthly",
+    "pro_yearly"
+  ],
+  "updated": [
+    "free"
+  ],
+  "total": 3
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Forbidden — Admin only
+
+No links
+
+POST
+/api/v1/payments/initiate
+Initiate a payment for subscription upgrade
+
+
+Creates a PENDING transaction, generates a QR code URL for bank transfer via SePay. User scans QR → transfers money → SePay webhook confirms → subscription activates.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "planId": "507f1f77bcf86cd799439012"
+}
+Responses
+Code	Description	Links
+201	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "transactionId": "665a1b2c3d4e5f6a7b8c9d0e",
+  "orderCode": "EDUTECH1718000000123",
+  "qrCodeUrl": "https://qr.sepay.vn/img?acc=0123456789&bank=MBBank&amount=99000&des=EDUTECH1718000000123",
+  "amount": 99000,
+  "bankAccount": "0123456789",
+  "transferContent": "EDUTECH1718000000123",
+  "status": "PENDING"
+}
+No links
+400	
+Already has active subscription
+
+No links
+401	
+Unauthorized
+
+No links
+404	
+Plan not found
+
+No links
+
+POST
+/api/v1/payments/sepay/webhook
+SePay webhook callback (called by SePay server)
+
+Receives bank transfer notifications from SePay. Matches transfer content to pending transactions, confirms payment, and auto-activates user subscription.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "id": "44824031",
+  "gateway": "MBBank",
+  "transactionDate": "2025-06-10 14:30:00",
+  "accountNumber": "string",
+  "subAccount": "string",
+  "code": {},
+  "content": "EDUTECH1718000000123",
+  "transferAmount": 99000,
+  "transferType": "in",
+  "accumulated": 500000,
+  "referenceCode": "FT26069157988559",
+  "description": "string"
+}
+Responses
+Code	Description	Links
+200	
+Webhook processed
+
+No links
+403	
+Invalid webhook signature
+
+No links
+
+GET
+/api/v1/payments/{id}/status
+Check payment status (poll for confirmation)
+
+
+Client polls this endpoint after initiating payment to know when the bank transfer is confirmed by SePay.
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "transactionId": "string",
+  "status": "PENDING",
+  "paidAt": "2026-03-11T08:57:00.520Z",
+  "subscriptionId": {}
+}
+No links
+401	
+Unauthorized
+
+No links
+403	
+Transaction does not belong to you
+
+No links
+404	
+Transaction not found
+
+No links
+
+GET
+/api/v1/payments/plans/compare
+Get plan comparison for paywall screen
+
+
+Returns a side-by-side comparison of Free vs Pro benefits, available pricing options, and whether the user is already Pro.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "benefits": [
+    {
+      "label": "Truy cập bài học",
+      "free": "Giới hạn 5 bài/ngày",
+      "pro": "Không giới hạn"
+    }
+  ],
+  "pricing": [
+    {
+      "planId": "string",
+      "period": "MONTHLY",
+      "price": 99000,
+      "originalPrice": 1188000,
+      "durationDays": 30
+    }
+  ],
+  "isCurrentlyPro": false
+}
+No links
+401	
+Unauthorized
+
+No links

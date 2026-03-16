@@ -1,5 +1,5 @@
-import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { Redirect } from "expo-router";
 
 export default function AuthIndex() {
   const { isAuthenticated, onboardingCompleted, isLoading } = useAuth();
@@ -10,7 +10,7 @@ export default function AuthIndex() {
   }
 
   if (isAuthenticated && onboardingCompleted) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/dashboard" />;
   }
 
   if (isAuthenticated && !onboardingCompleted) {

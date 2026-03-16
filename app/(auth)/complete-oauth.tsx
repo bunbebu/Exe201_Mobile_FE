@@ -107,8 +107,8 @@ export default function CompleteOAuth() {
             await setOnboardingGrade(selectedGrade);
             await setOnboardingGoals(selectedGoals);
 
-            // Navigate to personalize screen to continue onboarding
-            router.replace('/(auth)/personalize');
+            // Navigate to select-grade screen (đã có grade và goals, chỉ cần chọn lại để confirm)
+            router.replace('/(auth)/select-grade');
         } catch (error: any) {
             Alert.alert('Lỗi', error?.message ?? 'Hoàn tất hồ sơ thất bại. Vui lòng thử lại.');
         } finally {

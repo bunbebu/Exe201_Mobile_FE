@@ -10,6 +10,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Platform } from "react-native";
 
 export type AuthUserRole = "STUDENT" | "TEACHER" | "PARENT" | "ADMIN" | string;
 
@@ -188,14 +189,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const loginWithEmail = useCallback(async (payload: LoginPayload) => {
+    console.log('[AUTH] loginWithEmail called');
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
+      console.log('[AUTH] Calling API login...');
       const res = await apiLoginWithEmail(payload);
+      console.log('[AUTH] API login response received');
+      console.log('[AUTH] User role from API:', res.user.role);
 
       // Only allow student role for this mobile flow
       if (res.user.role !== "STUDENT") {
+        console.error('[AUTH] User role is not STUDENT, rejecting login');
         throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
       }
+      
+      console.log('[AUTH] User role is STUDENT, proceeding with login');
 
       const tokens: AuthTokens = {
         accessToken: res.accessToken,
@@ -203,19 +211,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         sessionId: res.sessionId,
       };
 
+      console.log('[AUTH] Saving tokens and user to AsyncStorage...');
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
         AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user)),
       ]);
+      console.log('[AUTH] Tokens and user saved to AsyncStorage');
 
-      setState((prev) => ({
-        ...prev,
-        user: res.user,
-        tokens,
-        isAuthenticated: true,
-        isLoading: false,
-      }));
+      // Check onboarding status from storage
+      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+      console.log('[AUTH] Onboarding completed from storage:', onboardingCompleted);
+
+      setState((prev) => {
+        const newState = {
+          ...prev,
+          user: res.user,
+          tokens,
+          isAuthenticated: true,
+          isLoading: false,
+          onboardingCompleted: onboardingCompleted === "true",
+        };
+        console.log('[AUTH] State updated:', {
+          isAuthenticated: newState.isAuthenticated,
+          onboardingCompleted: newState.onboardingCompleted,
+          isLoading: newState.isLoading,
+          hasUser: !!newState.user,
+          hasTokens: !!newState.tokens,
+        });
+        console.log('[AUTH] Full state:', JSON.stringify(newState, null, 2));
+        return newState;
+      });
+      
+      console.log('[AUTH] loginWithEmail completed successfully');
     } catch (error) {
+      console.error('[AUTH] Error in loginWithEmail:', error);
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
@@ -267,25 +296,214 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
+    console.log('[AUTH] loginWithGoogle called, Platform:', Platform.OS);
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      // Get OAuth URL from backend
-      const redirectUri = Linking.createURL("oauth-callback", { scheme: APP_SCHEME });
-      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirect_uri=${encodeURIComponent(redirectUri)}`;
+      if (Platform.OS === "web") {
+        console.log('[AUTH] Google OAuth - Opening popup...');
+        const popupUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login`;
 
-      // Open browser for OAuth
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+
+        const popup = window.open(
+          popupUrl,
+          "google-login",
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+        );
+
+        if (!popup) {
+          throw new Error("Không mở được cửa sổ đăng nhập Google.");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          let messageReceived = false;
+          let intervalId: ReturnType<typeof setInterval> | null = null;
+          let checkTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+          // Lắng nghe postMessage từ callback page
+          const messageHandler = async (event: MessageEvent) => {
+            console.log('[AUTH] Google OAuth - Message received:', event.data);
+            // Chỉ xử lý message từ cùng origin
+            if (event.origin !== window.location.origin) {
+              console.log('[AUTH] Google OAuth - Message from different origin, ignoring');
+              return;
+            }
+
+            if (
+              event.data?.source === "google-oauth-callback" &&
+              event.data?.payload
+            ) {
+              console.log('[AUTH] Google OAuth - Valid callback message received');
+              messageReceived = true;
+              if (intervalId) {
+                window.clearInterval(intervalId);
+              }
+              if (checkTimeoutId) {
+                window.clearTimeout(checkTimeoutId);
+              }
+              window.removeEventListener("message", messageHandler);
+
+              const data = event.data.payload;
+              console.log('[AUTH] Google OAuth - Payload data:', data);
+
+              // Đóng popup nếu còn mở
+              if (popup && !popup.closed) {
+                popup.close();
+              }
+
+              try {
+                // Nếu có completionToken -> lần đầu đăng ký, cần complete profile
+                if (data.completionToken) {
+                  await AsyncStorage.setItem(
+                    STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
+                    data.completionToken
+                  );
+                  setState((prev) => ({ ...prev, isLoading: false }));
+                  resolve();
+                  return;
+                }
+
+                // Nếu có accessToken/refreshToken -> đã có tài khoản, đăng nhập luôn
+                if (data.user && data.accessToken && data.refreshToken) {
+                  if (data.user.role !== "STUDENT") {
+                    reject(
+                      new Error(
+                        "Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student)."
+                      )
+                    );
+                    return;
+                  }
+
+                  const tokens: AuthTokens = {
+                    accessToken: data.accessToken,
+                    refreshToken: data.refreshToken,
+                    sessionId: data.sessionId,
+                  };
+
+                  const user: AuthUser = {
+                    id: data.user.id,
+                    email: data.user.email,
+                    role: data.user.role,
+                    avatarUrl: data.user.avatarUrl ?? null,
+                  };
+
+                  console.log('[AUTH] Google OAuth - Saving tokens and user to AsyncStorage...');
+                  await Promise.all([
+                    AsyncStorage.setItem(
+                      STORAGE_KEYS.TOKENS,
+                      JSON.stringify(tokens)
+                    ),
+                    AsyncStorage.setItem(
+                      STORAGE_KEYS.USER,
+                      JSON.stringify(user)
+                    ),
+                  ]);
+                  console.log('[AUTH] Google OAuth - Tokens and user saved');
+
+                  // Check onboarding status from storage
+                  const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+                  console.log('[AUTH] Google OAuth - Onboarding completed from storage:', onboardingCompleted);
+
+                  setState((prev) => {
+                    const newState = {
+                      ...prev,
+                      user,
+                      tokens,
+                      isAuthenticated: true,
+                      isLoading: false,
+                      onboardingCompleted: onboardingCompleted === "true",
+                    };
+                    console.log('[AUTH] Google OAuth - State updated:', {
+                      isAuthenticated: newState.isAuthenticated,
+                      onboardingCompleted: newState.onboardingCompleted,
+                      isLoading: newState.isLoading,
+                    });
+                    return newState;
+                  });
+
+                  resolve();
+                  return;
+                }
+
+                // Không có completionToken cũng không có tokens
+                reject(
+                  new Error(
+                    "Không nhận được thông tin đăng nhập hợp lệ từ máy chủ."
+                  )
+                );
+              } catch (err: any) {
+                reject(err || new Error("Lỗi xử lý đăng nhập Google."));
+              }
+            }
+          };
+
+          // Đăng ký listener
+          console.log('[AUTH] Google OAuth - Registering message handler');
+          window.addEventListener("message", messageHandler);
+
+          // Đợi một chút trước khi bắt đầu check popup (để callback page có thời gian load)
+          checkTimeoutId = window.setTimeout(() => {
+            console.log('[AUTH] Google OAuth - Starting popup status check');
+            // Fallback: Check nếu popup đóng mà chưa nhận message
+            // Tăng interval để đợi message được gửi (callback page có delay 500ms)
+            intervalId = window.setInterval(() => {
+              const isClosed = popup.closed;
+              console.log('[AUTH] Google OAuth - Checking popup status:', {
+                closed: isClosed,
+                messageReceived,
+              });
+              
+              if (isClosed && !messageReceived) {
+                console.error('[AUTH] Google OAuth - Popup closed before message received');
+                if (intervalId) {
+                  window.clearInterval(intervalId);
+                }
+                window.removeEventListener("message", messageHandler);
+                reject(new Error("Cửa sổ đăng nhập Google đã bị đóng."));
+              }
+            }, 1000); // Check mỗi 1 giây
+          }, 2000); // Đợi 2 giây trước khi bắt đầu check
+
+          // Timeout sau 60 giây
+          setTimeout(() => {
+            if (!messageReceived) {
+              console.error('[AUTH] Google OAuth - Timeout after 60 seconds');
+              if (intervalId) {
+                window.clearInterval(intervalId);
+              }
+              if (checkTimeoutId) {
+                window.clearTimeout(checkTimeoutId);
+              }
+              window.removeEventListener("message", messageHandler);
+              if (popup && !popup.closed) {
+                popup.close();
+              }
+              reject(new Error("Đăng nhập Google quá thời gian chờ."));
+            }
+          }, 60000);
+        });
+
+        return;
+      }
+
+      const redirectUri = Linking.createURL("oauth-callback", {
+        scheme: APP_SCHEME,
+      });
+      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}`;
+
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
 
       if (result.type === "success" && result.url) {
-        // Parse callback URL
         const url = new URL(result.url);
         const token = url.searchParams.get("token");
         const completionToken = url.searchParams.get("completionToken");
 
         if (token) {
-          // User already has account - token might be accessToken or a temporary token
-          // Try to use it as accessToken first, or call backend to exchange
-          // For now, we'll try to fetch user info with this token
           try {
             const userRes = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
               headers: {
@@ -296,26 +514,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (userRes.ok) {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               const userData: any = await userRes.json();
-              
-              // Only allow student role
+
               if (userData.role !== "STUDENT") {
-                throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
+                throw new Error(
+                  "Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student)."
+                );
               }
 
               const tokens: AuthTokens = {
                 accessToken: token,
-                refreshToken: "", // Backend should provide this, but for now we'll leave it empty
+                refreshToken: "",
                 sessionId: undefined,
               };
 
               await Promise.all([
-                AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
-                AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
-                  id: userData.id,
-                  email: userData.email,
-                  role: userData.role,
-                  avatarUrl: userData.avatarUrl ?? null,
-                })),
+                AsyncStorage.setItem(
+                  STORAGE_KEYS.TOKENS,
+                  JSON.stringify(tokens)
+                ),
+                AsyncStorage.setItem(
+                  STORAGE_KEYS.USER,
+                  JSON.stringify({
+                    id: userData.id,
+                    email: userData.email,
+                    role: userData.role,
+                    avatarUrl: userData.avatarUrl ?? null,
+                  })
+                ),
               ]);
 
               setState((prev) => ({
@@ -335,20 +560,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               throw new Error("Không thể lấy thông tin người dùng từ token.");
             }
           } catch (err) {
-            // If token exchange fails, treat it as completionToken needed
-            // This might happen if backend uses a different flow
             if (completionToken) {
-              await AsyncStorage.setItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN, completionToken);
+              await AsyncStorage.setItem(
+                STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
+                completionToken
+              );
               setState((prev) => ({ ...prev, isLoading: false }));
               return;
             }
             throw err;
           }
         } else if (completionToken) {
-          // First time login, need to complete profile
-          await AsyncStorage.setItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN, completionToken);
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
+            completionToken
+          );
           setState((prev) => ({ ...prev, isLoading: false }));
-          // Navigate to complete profile screen will be handled by the component
           return;
         } else {
           throw new Error("Không nhận được token từ OAuth callback.");
