@@ -34,14 +34,8 @@ export default function Login() {
         });
         
         if (isAuthenticated && !isLoading) {
-            console.log('[LOGIN] Ready to redirect. Onboarding completed:', onboardingCompleted);
-            if (onboardingCompleted) {
-                console.log('[LOGIN] Redirecting to /dashboard');
-                router.replace('/dashboard');
-            } else {
-                console.log('[LOGIN] Redirecting to /(auth)/personalize');
-                router.replace('/(auth)/personalize');
-            }
+            console.log('[LOGIN] Ready to redirect to index');
+            router.replace('/');
         }
     }, [isAuthenticated, onboardingCompleted, isLoading]);
 
@@ -73,13 +67,9 @@ export default function Login() {
             const onboardingCompletedFromStorage = await AsyncStorage.getItem('@edutech/onboardingCompleted');
             console.log('[LOGIN] Onboarding status from storage:', onboardingCompletedFromStorage);
             
-            if (onboardingCompletedFromStorage === 'true') {
-                console.log('[LOGIN] Redirecting to /dashboard (from handleLogin)');
-                router.replace('/dashboard');
-            } else {
-                console.log('[LOGIN] Redirecting to /(auth)/personalize (from handleLogin)');
-                router.replace('/(auth)/personalize');
-            }
+            // Redirect về index sau khi login thành công
+            console.log('[LOGIN] Redirecting to / (from handleLogin)');
+            router.replace('/');
         } catch (error: any) {
             console.error('[LOGIN] Error in handleLogin:', error);
             Alert.alert(
@@ -219,16 +209,9 @@ export default function Login() {
                                             return;
                                         }
                                         
-                                        // Check onboarding status và redirect
-                                        const onboardingCompleted = await AsyncStorage.getItem('@edutech/onboardingCompleted');
-                                        console.log('[LOGIN] Google - Onboarding status:', onboardingCompleted);
-                                        if (onboardingCompleted === 'true') {
-                                            console.log('[LOGIN] Google - Redirecting to /dashboard');
-                                            router.replace('/dashboard');
-                                        } else {
-                                            console.log('[LOGIN] Google - Redirecting to /(auth)/personalize');
-                                            router.replace('/(auth)/personalize');
-                                        }
+                                        // Redirect về index sau khi login Google thành công
+                                        console.log('[LOGIN] Google - Redirecting to /');
+                                        router.replace('/');
                                     } catch (error: any) {
                                         console.error('[LOGIN] Google login error:', error);
                                         Alert.alert(
@@ -259,16 +242,9 @@ export default function Login() {
                                             return;
                                         }
                                         
-                                        // Check onboarding status và redirect
-                                        const onboardingCompleted = await AsyncStorage.getItem('@edutech/onboardingCompleted');
-                                        console.log('[LOGIN] Facebook - Onboarding status:', onboardingCompleted);
-                                        if (onboardingCompleted === 'true') {
-                                            console.log('[LOGIN] Facebook - Redirecting to /dashboard');
-                                            router.replace('/dashboard');
-                                        } else {
-                                            console.log('[LOGIN] Facebook - Redirecting to /(auth)/personalize');
-                                            router.replace('/(auth)/personalize');
-                                        }
+                                        // Redirect về index sau khi login Facebook thành công
+                                        console.log('[LOGIN] Facebook - Redirecting to /');
+                                        router.replace('/');
                                     } catch (error: any) {
                                         console.error('[LOGIN] Facebook login error:', error);
                                         Alert.alert(

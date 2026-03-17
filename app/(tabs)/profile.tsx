@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useColors } from '@/hooks/use-colors';
 
@@ -46,9 +47,17 @@ function MenuItem({ icon, label, color, onPress, right }: MenuItemProps) {
 export default function ProfileScreen() {
     const colors = useColors();
     const { isDark, toggleTheme } = useAppTheme();
+    const { logout } = useAuth();
 
-    const handleLogout = () => {
-        router.replace('/(auth)/login');
+    const handleLogout = async () => {
+        try {
+            await logout();
+            router.replace('/(auth)/login');
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Vẫn redirect về login ngay cả khi có lỗi
+            router.replace('/(auth)/login');
+        }
     };
 
     return (

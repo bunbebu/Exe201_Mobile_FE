@@ -54,6 +54,13 @@ interface Lesson {
   chapterTitle?: string;
 }
 
+interface Chapter {
+  id: string;
+  title: string;
+  orderIndex: number;
+  lessons: Lesson[];
+}
+
 interface DashboardHeaderData {
   fullName: string;
   currentStreak: number;
@@ -61,7 +68,8 @@ interface DashboardHeaderData {
 }
 
 interface DashboardData {
-  lessons: Lesson[];
+  lessons: Lesson[]; // flatten để tính progress / find next lesson
+  chapters: Chapter[]; // để hiển thị dạng tree theo chương
   totalLessons: number;
   completedLessons: number;
   progressPercent: number;
@@ -74,6 +82,7 @@ export default function HomeScreen() {
   const [headerData, setHeaderData] = useState<DashboardHeaderData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedCourseTitle, setSelectedCourseTitle] = useState<string>('Lộ trình học của bạn');
 
   const quickActions: QuickActionProps[] = [
     { icon: 'book-outline', label: 'Môn học', color: '#3B82F6', bgColor: colors.qaBlueBg },
@@ -132,9 +141,15 @@ export default function HomeScreen() {
         });
 
         if (res.ok) {
-          const courses: any[] = await res.json();
-          if (courses.length > 0) {
-            setSelectedCourseId(courses[0].id);
+          const data: any = await res.json();
+
+          // Backend trả về { success, data: { items: [...] } }
+          const items: any[] = data?.data?.items ?? [];
+
+          if (items.length > 0) {
+            const firstCourse = items[0];
+            setSelectedCourseId(firstCourse.id);
+            setSelectedCourseTitle(firstCourse.title || 'Lộ trình học của bạn');
           }
         }
       } catch (error) {
@@ -168,17 +183,24 @@ export default function HomeScreen() {
           throw new Error('Failed to fetch curriculum');
         }
 
-        const data: any = await res.json();
+        const raw: any = await res.json();
 
-        // Transform data để có lessons với status
+        // Backend nhiều khả năng trả về { success, data: { chapters: [...] } }
+        const data = raw?.data ?? raw;
+
+        // Transform data: chapters + lessons với trạng thái
         const lessons: Lesson[] = [];
+        const chapters: Chapter[] = [];
         let foundNext = false;
 
-        if (data.chapters) {
+        if (data?.chapters) {
           data.chapters.forEach((chapter: any) => {
+            const chapterLessons: Lesson[] = [];
+
             if (chapter.lessons) {
               chapter.lessons.forEach((lesson: any) => {
-                const isCompleted = lesson.progress?.isCompleted || false;
+                // Dùng đúng field từ API curriculum: isCompleted, isLocked, videoWatched, quizCompleted
+                const isCompleted = lesson.isCompleted || false;
                 const isLocked = lesson.isLocked || false;
 
                 // Bài tiếp theo là bài đầu tiên chưa completed và không locked
@@ -188,7 +210,7 @@ export default function HomeScreen() {
                   foundNext = true;
                 }
 
-                lessons.push({
+                const lessonItem: Lesson = {
                   id: lesson.id,
                   title: lesson.title,
                   description: lesson.description,
@@ -198,10 +220,23 @@ export default function HomeScreen() {
                   isNext,
                   chapterId: chapter.id,
                   chapterTitle: chapter.title,
-                });
+                };
+
+                lessons.push(lessonItem);
+                chapterLessons.push(lessonItem);
               });
             }
+
+            chapters.push({
+              id: chapter.id,
+              title: chapter.title,
+              orderIndex: chapter.orderIndex ?? 0,
+              lessons: chapterLessons.sort((a, b) => a.orderIndex - b.orderIndex),
+            });
           });
+
+          // Sắp xếp chương theo orderIndex
+          chapters.sort((a, b) => a.orderIndex - b.orderIndex);
         }
 
         const completedLessons = lessons.filter((l) => l.isCompleted).length;
@@ -210,6 +245,7 @@ export default function HomeScreen() {
 
         setDashboardData({
           lessons,
+          chapters,
           totalLessons: lessons.length,
           completedLessons,
           progressPercent,
@@ -253,6 +289,39 @@ export default function HomeScreen() {
       return 'lock-closed';
     }
     return 'play-circle';
+  };
+
+  // Tìm lesson tiếp theo để học (isNext hoặc lesson đầu tiên chưa completed và không locked)
+  const getNextLesson = (): Lesson | null => {
+    if (!dashboardData || !dashboardData.lessons.length) return null;
+    
+    // Tìm lesson có isNext = true
+    const nextLesson = dashboardData.lessons.find((l) => l.isNext);
+    if (nextLesson) return nextLesson;
+    
+    // Nếu không có isNext, tìm lesson đầu tiên chưa completed và không locked
+    const firstAvailable = dashboardData.lessons.find((l) => !l.isCompleted && !l.isLocked);
+    return firstAvailable || null;
+  };
+
+  const handleStartLearning = () => {
+    const nextLesson = getNextLesson();
+    if (nextLesson) {
+      router.push({ pathname: '/lesson/[id]', params: { id: nextLesson.id } } as any);
+    } else {
+      Alert.alert('Thông báo', 'Bạn đã hoàn thành tất cả bài học!');
+    }
+  };
+
+  const handleOpenCourse = () => {
+    if (!selectedCourseId) return;
+    router.push({
+      pathname: '/course/[id]',
+      params: {
+        id: selectedCourseId,
+        title: selectedCourseTitle,
+      },
+    } as any);
   };
 
   return (
@@ -316,7 +385,9 @@ export default function HomeScreen() {
         {/* Progress Card */}
         <View style={styles.progressCard}>
           <Text style={styles.progressLabel}>Lộ trình học tập</Text>
-          <Text style={styles.progressTitle}>Luyện thi vào 10</Text>
+          <TouchableOpacity onPress={handleOpenCourse} disabled={!selectedCourseId}>
+            <Text style={styles.progressTitle}>{selectedCourseTitle}</Text>
+          </TouchableOpacity>
 
           <View style={styles.progressInfo}>
             <View style={styles.progressBarContainer}>
@@ -338,6 +409,28 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Button Bắt đầu học / Tiếp tục học */}
+          {dashboardData && dashboardData.lessons.length > 0 && (
+            <TouchableOpacity
+              style={styles.startLearningButton}
+              onPress={handleStartLearning}
+              disabled={!getNextLesson()}
+            >
+              <Ionicons
+                name={getNextLesson() ? 'play-circle' : 'checkmark-circle'}
+                size={24}
+                color="#fff"
+              />
+              <Text style={styles.startLearningButtonText}>
+                {getNextLesson()
+                  ? dashboardData.completedLessons > 0
+                    ? 'Tiếp tục học'
+                    : 'Bắt đầu học'
+                  : 'Đã hoàn thành'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -378,7 +471,14 @@ export default function HomeScreen() {
                   if (lesson.isLocked) {
                     Alert.alert('Khóa', 'Bạn cần hoàn thành bài học trước để mở khóa bài này.');
                   } else {
-                    router.push({ pathname: '/lesson/[id]', params: { id: lesson.id } } as any);
+                    router.push({
+                      pathname: '/lesson/[id]',
+                      params: {
+                        id: lesson.id,
+                        title: lesson.title,
+                        description: lesson.description,
+                      },
+                    } as any);
                   }
                 }}
                 disabled={lesson.isLocked}
@@ -439,7 +539,16 @@ export default function HomeScreen() {
                           : '#3B82F6',
                       },
                     ]}
-                    onPress={() => router.push({ pathname: '/lesson/[id]', params: { id: lesson.id } } as any)}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/lesson/[id]',
+                        params: {
+                          id: lesson.id,
+                          title: lesson.title,
+                          description: lesson.description,
+                        },
+                      } as any)
+                    }
                   >
                     <Ionicons
                       name={lesson.isCompleted ? 'checkmark' : 'play'}
@@ -640,6 +749,27 @@ const styles = StyleSheet.create({
     fontSize: isTablet ? 16 : 14,
     fontWeight: '600',
     color: '#fff',
+  },
+  startLearningButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: isTablet ? 16 : 14,
+    paddingHorizontal: isTablet ? 24 : 20,
+    borderRadius: isTablet ? 16 : 12,
+    marginTop: isTablet ? 20 : 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  startLearningButtonText: {
+    fontSize: isTablet ? 18 : 16,
+    fontWeight: '700',
+    color: '#3B82F6',
   },
   quickActionsContainer: {
     flexDirection: 'row',

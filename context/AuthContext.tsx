@@ -78,6 +78,13 @@ interface AuthContextValue extends AuthState {
   loginWithEmail: (payload: LoginPayload) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithFacebook: () => Promise<void>;
+  hydrateFromOAuthLogin: (payload: {
+    user: AuthUser;
+    accessToken: string;
+    refreshToken: string;
+    sessionId?: string;
+    onboardingCompleted?: boolean;
+  }) => Promise<void>;
   completeOAuthProfile: (payload: {
     completionToken: string;
     role: "STUDENT";
@@ -198,11 +205,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('[AUTH] User role from API:', res.user.role);
 
       // Only allow student role for this mobile flow
-      if (res.user.role !== "STUDENT") {
-        console.error('[AUTH] User role is not STUDENT, rejecting login');
-        throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
-      }
-      
+      // if (res.user.role !== "STUDENT") {
+      //   console.error('[AUTH] User role is not STUDENT, rejecting login');
+      //   throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
+      // }
+
       console.log('[AUTH] User role is STUDENT, proceeding with login');
 
       const tokens: AuthTokens = {
@@ -241,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log('[AUTH] Full state:', JSON.stringify(newState, null, 2));
         return newState;
       });
-      
+
       console.log('[AUTH] loginWithEmail completed successfully');
     } catch (error) {
       console.error('[AUTH] Error in loginWithEmail:', error);
@@ -272,6 +279,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  const hydrateFromOAuthLogin = useCallback(
+    async (payload: {
+      user: AuthUser;
+      accessToken: string;
+      refreshToken: string;
+      sessionId?: string;
+      onboardingCompleted?: boolean; // Optional: từ response nếu có
+    }) => {
+      const tokens: AuthTokens = {
+        accessToken: payload.accessToken,
+        refreshToken: payload.refreshToken,
+        sessionId: payload.sessionId,
+      };
+
+      // Nếu có onboardingCompleted từ payload (response), dùng nó
+      // Nếu không, đọc từ AsyncStorage
+      let onboardingCompleted: boolean;
+      if (payload.onboardingCompleted !== undefined) {
+        onboardingCompleted = payload.onboardingCompleted;
+        // Lưu vào AsyncStorage
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.ONBOARDING_COMPLETED,
+          onboardingCompleted ? "true" : "false"
+        );
+        console.log('[AUTH] hydrateFromOAuthLogin - onboardingCompleted from payload:', onboardingCompleted);
+      } else {
+        const onboardingCompletedStr = await AsyncStorage.getItem(
+          STORAGE_KEYS.ONBOARDING_COMPLETED
+        );
+        onboardingCompleted = onboardingCompletedStr === "true";
+        console.log('[AUTH] hydrateFromOAuthLogin - onboardingCompleted from storage:', onboardingCompleted);
+      }
+
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
+        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(payload.user)),
+      ]);
+
+      setState((prev) => ({
+        ...prev,
+        user: payload.user,
+        tokens,
+        isAuthenticated: true,
+        isLoading: false,
+        onboardingCompleted,
+      }));
+    },
+    []
+  );
+
   const setOnboardingGoals = useCallback((goals: LearningGoal[]) => {
     setState((prev) => ({ ...prev, onboardingGoals: goals }));
     AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_GOALS, JSON.stringify(goals)).catch(
@@ -300,192 +357,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
       if (Platform.OS === "web") {
-        console.log('[AUTH] Google OAuth - Opening popup...');
-        const popupUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login`;
-
-        const width = 500;
-        const height = 600;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-
-        const popup = window.open(
-          popupUrl,
-          "google-login",
-          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
-        );
-
-        if (!popup) {
-          throw new Error("Không mở được cửa sổ đăng nhập Google.");
-        }
-
-        await new Promise<void>((resolve, reject) => {
-          let messageReceived = false;
-          let intervalId: ReturnType<typeof setInterval> | null = null;
-          let checkTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-          // Lắng nghe postMessage từ callback page
-          const messageHandler = async (event: MessageEvent) => {
-            console.log('[AUTH] Google OAuth - Message received:', event.data);
-            // Chỉ xử lý message từ cùng origin
-            if (event.origin !== window.location.origin) {
-              console.log('[AUTH] Google OAuth - Message from different origin, ignoring');
-              return;
-            }
-
-            if (
-              event.data?.source === "google-oauth-callback" &&
-              event.data?.payload
-            ) {
-              console.log('[AUTH] Google OAuth - Valid callback message received');
-              messageReceived = true;
-              if (intervalId) {
-                window.clearInterval(intervalId);
-              }
-              if (checkTimeoutId) {
-                window.clearTimeout(checkTimeoutId);
-              }
-              window.removeEventListener("message", messageHandler);
-
-              const data = event.data.payload;
-              console.log('[AUTH] Google OAuth - Payload data:', data);
-
-              // Đóng popup nếu còn mở
-              if (popup && !popup.closed) {
-                popup.close();
-              }
-
-              try {
-                // Nếu có completionToken -> lần đầu đăng ký, cần complete profile
-                if (data.completionToken) {
-                  await AsyncStorage.setItem(
-                    STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
-                    data.completionToken
-                  );
-                  setState((prev) => ({ ...prev, isLoading: false }));
-                  resolve();
-                  return;
-                }
-
-                // Nếu có accessToken/refreshToken -> đã có tài khoản, đăng nhập luôn
-                if (data.user && data.accessToken && data.refreshToken) {
-                  if (data.user.role !== "STUDENT") {
-                    reject(
-                      new Error(
-                        "Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student)."
-                      )
-                    );
-                    return;
-                  }
-
-                  const tokens: AuthTokens = {
-                    accessToken: data.accessToken,
-                    refreshToken: data.refreshToken,
-                    sessionId: data.sessionId,
-                  };
-
-                  const user: AuthUser = {
-                    id: data.user.id,
-                    email: data.user.email,
-                    role: data.user.role,
-                    avatarUrl: data.user.avatarUrl ?? null,
-                  };
-
-                  console.log('[AUTH] Google OAuth - Saving tokens and user to AsyncStorage...');
-                  await Promise.all([
-                    AsyncStorage.setItem(
-                      STORAGE_KEYS.TOKENS,
-                      JSON.stringify(tokens)
-                    ),
-                    AsyncStorage.setItem(
-                      STORAGE_KEYS.USER,
-                      JSON.stringify(user)
-                    ),
-                  ]);
-                  console.log('[AUTH] Google OAuth - Tokens and user saved');
-
-                  // Check onboarding status from storage
-                  const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
-                  console.log('[AUTH] Google OAuth - Onboarding completed from storage:', onboardingCompleted);
-
-                  setState((prev) => {
-                    const newState = {
-                      ...prev,
-                      user,
-                      tokens,
-                      isAuthenticated: true,
-                      isLoading: false,
-                      onboardingCompleted: onboardingCompleted === "true",
-                    };
-                    console.log('[AUTH] Google OAuth - State updated:', {
-                      isAuthenticated: newState.isAuthenticated,
-                      onboardingCompleted: newState.onboardingCompleted,
-                      isLoading: newState.isLoading,
-                    });
-                    return newState;
-                  });
-
-                  resolve();
-                  return;
-                }
-
-                // Không có completionToken cũng không có tokens
-                reject(
-                  new Error(
-                    "Không nhận được thông tin đăng nhập hợp lệ từ máy chủ."
-                  )
-                );
-              } catch (err: any) {
-                reject(err || new Error("Lỗi xử lý đăng nhập Google."));
-              }
-            }
-          };
-
-          // Đăng ký listener
-          console.log('[AUTH] Google OAuth - Registering message handler');
-          window.addEventListener("message", messageHandler);
-
-          // Đợi một chút trước khi bắt đầu check popup (để callback page có thời gian load)
-          checkTimeoutId = window.setTimeout(() => {
-            console.log('[AUTH] Google OAuth - Starting popup status check');
-            // Fallback: Check nếu popup đóng mà chưa nhận message
-            // Tăng interval để đợi message được gửi (callback page có delay 500ms)
-            intervalId = window.setInterval(() => {
-              const isClosed = popup.closed;
-              console.log('[AUTH] Google OAuth - Checking popup status:', {
-                closed: isClosed,
-                messageReceived,
-              });
-              
-              if (isClosed && !messageReceived) {
-                console.error('[AUTH] Google OAuth - Popup closed before message received');
-                if (intervalId) {
-                  window.clearInterval(intervalId);
-                }
-                window.removeEventListener("message", messageHandler);
-                reject(new Error("Cửa sổ đăng nhập Google đã bị đóng."));
-              }
-            }, 1000); // Check mỗi 1 giây
-          }, 2000); // Đợi 2 giây trước khi bắt đầu check
-
-          // Timeout sau 60 giây
-          setTimeout(() => {
-            if (!messageReceived) {
-              console.error('[AUTH] Google OAuth - Timeout after 60 seconds');
-              if (intervalId) {
-                window.clearInterval(intervalId);
-              }
-              if (checkTimeoutId) {
-                window.clearTimeout(checkTimeoutId);
-              }
-              window.removeEventListener("message", messageHandler);
-              if (popup && !popup.closed) {
-                popup.close();
-              }
-              reject(new Error("Đăng nhập Google quá thời gian chờ."));
-            }
-          }, 60000);
-        });
-
+        // Web: full-page redirect flow (no popup)
+        // Backend sẽ xử lý Google OAuth và redirect lại FE tại /oauth/google-callback-web
+        const callbackUrl = `${window.location.origin}/oauth/google-callback-web`;
+        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
+          callbackUrl
+        )}`;
+        window.location.href = loginUrl;
         return;
       }
 
@@ -622,7 +500,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (userRes.ok) {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               const userData: any = await userRes.json();
-              
+
               // Only allow student role
               if (userData.role !== "STUDENT") {
                 throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
@@ -725,7 +603,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const data: any = await res.json();
+        const response: any = await res.json();
+
+        // Backend trả về format: { success, data: { accessToken, user, ... }, message, statusCode }
+        const data = response.data || response;
 
         // Student role should return tokens immediately
         if (data.accessToken && data.user) {
@@ -765,7 +646,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               // But let's wait for the user to complete the onboarding flow
             ]);
           }
-        } else if (data.pendingApproval) {
+        } else if (data.pendingApproval === true) {
           // Teacher/Parent roles need approval
           throw new Error("Tài khoản của bạn đang chờ phê duyệt từ quản trị viên.");
         } else {
@@ -785,6 +666,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loginWithEmail,
       loginWithGoogle,
       loginWithFacebook,
+      hydrateFromOAuthLogin,
       completeOAuthProfile,
       logout,
       setOnboardingGoals,
@@ -796,6 +678,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loginWithEmail,
       loginWithGoogle,
       loginWithFacebook,
+      hydrateFromOAuthLogin,
       completeOAuthProfile,
       logout,
       setOnboardingGoals,

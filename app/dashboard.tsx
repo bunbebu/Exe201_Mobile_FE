@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,9 +30,11 @@ interface DashboardHeaderData {
 
 export default function DashboardScreen() {
   const colors = useColors();
-  const { tokens, user } = useAuth();
+  const router = useRouter();
+  const { tokens, user, logout } = useAuth();
   const [headerData, setHeaderData] = useState<DashboardHeaderData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Fetch dashboard header data from /api/v1/dashboard
   useEffect(() => {
@@ -134,11 +137,49 @@ export default function DashboardScreen() {
               )}
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}
-          >
-            <Ionicons name="notifications-outline" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}
+              onPress={() => setShowMenu((prev) => !prev)}
+            >
+              <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
+            </TouchableOpacity>
+            {showMenu && (
+              <View style={[styles.menuContainer, { backgroundColor: colors.cardBg }]}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push('/(tabs)/profile');
+                  }}
+                >
+                  <Ionicons name="person-outline" size={18} color={colors.text} />
+                  <Text style={[styles.menuItemText, { color: colors.text }]}>Hồ sơ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push('/(tabs)/profile'); // TODO: replace with dedicated change-password screen when available
+                  }}
+                >
+                  <Ionicons name="key-outline" size={18} color={colors.text} />
+                  <Text style={[styles.menuItemText, { color: colors.text }]}>Đổi mật khẩu</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={async () => {
+                    setShowMenu(false);
+                    await logout();
+                    router.replace('/(auth)/login');
+                  }}
+                >
+                  <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+                  <Text style={[styles.menuItemText, { color: '#DC2626' }]}>Đăng xuất</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Daily Progress Bar */}
@@ -248,6 +289,30 @@ const styles = StyleSheet.create({
     borderRadius: isTablet ? 26 : 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: isTablet ? 56 : 48,
+    right: 0,
+    minWidth: 170,
+    borderRadius: 12,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   dailyProgressContainer: {
     marginHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,

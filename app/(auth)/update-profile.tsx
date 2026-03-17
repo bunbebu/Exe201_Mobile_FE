@@ -30,16 +30,39 @@ export default function UpdateProfile() {
     const { tokens, onboardingGrade, markOnboardingCompleted } = useAuth();
 
     const formatDateInput = (text: string): string => {
-        // Chỉ cho phép số và dấu gạch ngang
-        const cleaned = text.replace(/[^\d-]/g, '');
+        // Chỉ lấy số, bỏ tất cả ký tự khác
+        const numbers = text.replace(/\D/g, '');
+        
         // Format: YYYY-MM-DD
-        if (cleaned.length <= 4) {
-            return cleaned;
-        } else if (cleaned.length <= 7) {
-            return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
+        if (numbers.length === 0) {
+            return '';
+        } else if (numbers.length <= 4) {
+            return numbers;
+        } else if (numbers.length <= 6) {
+            return `${numbers.slice(0, 4)}-${numbers.slice(4)}`;
         } else {
-            return `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
+            return `${numbers.slice(0, 4)}-${numbers.slice(4, 6)}-${numbers.slice(6, 8)}`;
         }
+    };
+
+    const isValidDate = (dateString: string): boolean => {
+        // Kiểm tra format YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(dateString)) {
+            return false;
+        }
+        
+        // Kiểm tra date có hợp lệ không
+        const date = new Date(dateString);
+        const [year, month, day] = dateString.split('-').map(Number);
+        
+        return (
+            date instanceof Date &&
+            !isNaN(date.getTime()) &&
+            date.getFullYear() === year &&
+            date.getMonth() + 1 === month &&
+            date.getDate() === day
+        );
     };
 
     const handleContinue = async () => {
@@ -65,6 +88,12 @@ export default function UpdateProfile() {
             return;
         }
 
+        // Validate dateOfBirth nếu có
+        if (dateOfBirth && !isValidDate(dateOfBirth)) {
+            Alert.alert('Ngày sinh không hợp lệ', 'Vui lòng nhập ngày sinh theo định dạng YYYY-MM-DD (VD: 2010-06-20)');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const res = await fetch(`${API_BASE_URL}/api/v1/student-profiles/me`, {
@@ -77,7 +106,7 @@ export default function UpdateProfile() {
                     fullName: fullName.trim(),
                     schoolName: schoolName.trim(),
                     gender: gender || undefined,
-                    dateOfBirth: dateOfBirth || undefined,
+                    dateOfBirth: dateOfBirth && isValidDate(dateOfBirth) ? dateOfBirth : undefined,
                     gradeLevel: String(onboardingGrade),
                 }),
             });
@@ -90,8 +119,8 @@ export default function UpdateProfile() {
             // Đánh dấu onboarding đã hoàn tất
             await markOnboardingCompleted();
 
-            // Chuyển đến Dashboard
-            router.replace('/dashboard');
+            // Chuyển đến tabs
+            router.replace('/(tabs)');
         } catch (error: any) {
             Alert.alert(
                 'Cập nhật thất bại',
@@ -217,7 +246,8 @@ export default function UpdateProfile() {
                                 placeholderTextColor="#9CA3AF"
                                 value={dateOfBirth}
                                 onChangeText={(text) => setDateOfBirth(formatDateInput(text))}
-                                keyboardType="numeric"
+                                // Dùng default keyboard để có thể nhập cả số và dấu '-' trên mobile
+                                keyboardType="default"
                                 maxLength={10}
                             />
                             <Ionicons name="calendar-outline" size={20} color="#9CA3AF" style={styles.iconRight} />

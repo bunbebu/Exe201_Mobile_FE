@@ -1,16 +1,16 @@
+import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
-
-import { useAuth } from '@/context/AuthContext';
 
 type LevelType = 'cap1' | 'cap2' | 'cap3';
 type GoalType = 'lay-lai-goc' | 'hoc-nang-cao' | 'on-thi-thpt' | 'luyen-thi-10';
@@ -29,10 +29,18 @@ interface GoalOption {
 }
 
 export default function Personalize() {
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedLevel, setSelectedLevel] = useState<LevelType | null>(null);
     const [selectedGoals, setSelectedGoals] = useState<GoalType[]>([]);
 
-    const { onboardingGoals, setOnboardingGoals } = useAuth();
+    const { onboardingGoals, setOnboardingGoals, isAuthenticated, onboardingCompleted } = useAuth();
+
+    // Check nếu đã authenticated và onboardingCompleted thì redirect về index
+    useEffect(() => {
+        if (isAuthenticated && onboardingCompleted) {
+            router.replace('/');
+        }
+    }, [isAuthenticated, onboardingCompleted]);
 
     // Khôi phục goals đã chọn nếu user quay lại màn hình này
     useEffect(() => {
@@ -40,6 +48,24 @@ export default function Personalize() {
             setSelectedGoals(onboardingGoals as GoalType[]);
         }
     }, [onboardingGoals]);
+
+    // Fake loading 2s khi vào trang
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#3B82F6" />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const levels: LevelOption[] = [
         { id: 'cap1', label: 'Cấp 1', sublabel: 'Lớp 1 - 5', icon: 'school-outline' },
@@ -203,6 +229,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     header: {
         flexDirection: 'row',

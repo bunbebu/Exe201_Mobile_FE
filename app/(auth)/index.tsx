@@ -10,7 +10,7 @@ export default function AuthIndex() {
   }
 
   if (isAuthenticated && onboardingCompleted) {
-    return <Redirect href="/dashboard" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   if (isAuthenticated && !onboardingCompleted) {

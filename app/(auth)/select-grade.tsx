@@ -46,8 +46,7 @@ export default function SelectGrade() {
         setIsSubmitting(true);
         try {
             // Gọi API onboarding student profile
-            // Dựa theo swagger: POST /api/v1/student-profiles/onboarding (CompleteOnboardingDto)
-            // Body cụ thể có thể cần tinh chỉnh lại theo backend thực tế.
+            // Swagger hiện tại chỉ chấp nhận { gradeLevel }, không cho phép field goals.
             await fetch(`${API_BASE_URL}/api/v1/student-profiles/onboarding`, {
                 method: 'POST',
                 headers: {
@@ -56,7 +55,6 @@ export default function SelectGrade() {
                 },
                 body: JSON.stringify({
                     gradeLevel: selectedGrade,
-                    goals: onboardingGoals,
                 }),
             });
 
