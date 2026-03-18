@@ -15,11 +15,12 @@ import {
   View,
 } from 'react-native';
 
-import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { requestPasswordResetOtp } = useAuth();
 
   const handleSendOTP = async () => {
     if (!email.trim()) {
@@ -36,34 +37,22 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/forgot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      if (res.ok) {
-        Alert.alert(
-          'OTP đã được gửi',
-          'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                router.push({
-                  pathname: '/(auth)/reset-password',
-                  params: { email: email.trim() },
-                });
-              },
+      await requestPasswordResetOtp({ email: email.trim() });
+      Alert.alert(
+        'OTP đã được gửi',
+        'Nếu email này đã được đăng ký, mã OTP 6 số sẽ được gửi. Vui lòng kiểm tra hộp thư.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.push({
+                pathname: '/(auth)/reset-password',
+                params: { email: email.trim() },
+              });
             },
-          ]
-        );
-      } else {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Không thể gửi OTP. Vui lòng thử lại.');
-      }
+          },
+        ]
+      );
     } catch (error: any) {
       console.error('Error sending OTP:', error);
       Alert.alert('Lỗi', error?.message || 'Không thể gửi OTP. Vui lòng thử lại.');

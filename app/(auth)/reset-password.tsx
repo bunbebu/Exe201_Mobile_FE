@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 
-import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ResetPassword() {
   const params = useLocalSearchParams<{ email: string }>();
@@ -30,6 +30,7 @@ export default function ResetPassword() {
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
+  const { requestPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithToken } = useAuth();
 
   // Timer countdown
   useEffect(() => {
@@ -67,26 +68,13 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          otp: otpString,
-        }),
+      const { resetToken } = await verifyPasswordResetOtp({
+        email: email.trim(),
+        otp: otpString,
       });
-
-      if (res.ok) {
-        const data: any = await res.json();
-        setResetToken(data.resetToken);
-        setStep('password');
-        Alert.alert('Thành công', 'OTP hợp lệ. Vui lòng đặt mật khẩu mới.');
-      } else {
-        const errorText = await res.text();
-        throw new Error(errorText || 'OTP không hợp lệ hoặc đã hết hạn.');
-      }
+      setResetToken(resetToken);
+      setStep('password');
+      Alert.alert('Thành công', 'OTP hợp lệ. Vui lòng đặt mật khẩu mới.');
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
       Alert.alert('Lỗi', error?.message || 'OTP không hợp lệ. Vui lòng thử lại.');
@@ -118,32 +106,17 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          resetToken,
-          newPassword,
-        }),
-      });
-
-      if (res.ok) {
-        Alert.alert(
-          'Thành công',
-          'Mật khẩu đã được đặt lại. Vui lòng đăng nhập với mật khẩu mới.',
-          [
-            {
-              text: 'Đăng nhập',
-              onPress: () => router.replace('/(auth)/login'),
-            },
-          ]
-        );
-      } else {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
-      }
+      await resetPasswordWithToken({ resetToken, newPassword });
+      Alert.alert(
+        'Thành công',
+        'Mật khẩu đã được đặt lại. Để bảo mật, hệ thống đã đăng xuất khỏi các thiết bị cũ. Vui lòng đăng nhập lại với mật khẩu mới.',
+        [
+          {
+            text: 'Đăng nhập',
+            onPress: () => router.replace('/(auth)/login'),
+          },
+        ]
+      );
     } catch (error: any) {
       console.error('Error resetting password:', error);
       Alert.alert('Lỗi', error?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
@@ -155,22 +128,10 @@ export default function ResetPassword() {
   const handleResendOTP = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/forgot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      if (res.ok) {
-        setTimer(600);
-        setOtp(['', '', '', '', '', '']);
-        Alert.alert('Thành công', 'OTP mới đã được gửi đến email của bạn.');
-      } else {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Không thể gửi lại OTP. Vui lòng thử lại.');
-      }
+      await requestPasswordResetOtp({ email: email.trim() });
+      setTimer(600);
+      setOtp(['', '', '', '', '', '']);
+      Alert.alert('Thành công', 'Nếu email này đã được đăng ký, OTP mới đã được gửi.');
     } catch (error: any) {
       console.error('Error resending OTP:', error);
       Alert.alert('Lỗi', error?.message || 'Không thể gửi lại OTP. Vui lòng thử lại.');

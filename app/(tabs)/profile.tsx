@@ -113,7 +113,11 @@ export default function ProfileScreen() {
                 <View style={styles.menuSection}>
                     <Text style={[styles.menuTitle, { color: colors.secondaryText }]}>Cài đặt</Text>
                     <View style={[styles.menuCard, { backgroundColor: colors.cardBg }]}>
-                        <MenuItem icon="notifications-outline" label="Thông báo" />
+                        <MenuItem
+                            icon="notifications-outline"
+                            label="Thông báo"
+                            onPress={() => router.push('/notifications' as any)}
+                        />
                         <MenuItem
                             icon="moon-outline"
                             label="Giao diện tối"

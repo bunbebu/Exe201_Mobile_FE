@@ -1,0 +1,154 @@
+Main WorkFlow 
+1. Luồng Học Tập Cốt Lõi (Core Learning Flow) - Giữ nguyên nhưng đơn giản hóa
+Mục tiêu: Đảm bảo học sinh xem bài và làm bài, nhưng giảm bớt xử lý video phức tạp.
+Bước 1 - Chọn bài: Học sinh chọn bài từ danh sách (thay vì bản đồ đồ họa phức tạp, dùng danh sách dạng cây chương/bài).
+Bước 2 - Xem & Làm bài (Tuần tự):
+Thay vì dừng video giữa chừng (kỹ thuật khó xử lý trên nhiều thiết bị): Chia bài học thành 2 phần rõ rệt: Xem Video xong -> Nút "Làm bài tập" sáng lên.
+Bước 3 - Thử thách (Quiz): Học sinh làm 5-10 câu trắc nghiệm nhanh.
+Bước 4 - Mở khóa (Unlock): Nếu điểm Quiz >= 80% -> Hệ thống mở khóa bài tiếp theo 
+
+-> Xem Course dạng tree: /api/v1/sequential-learning/curriculum/{courseId} - GET
+
+-> Update progress khi xem video (auto check complete khi videoWatched = true once >= 90 %) hoặc call thủ công Mark video as fully watched (yêu cầu xử lí phát video từ frontend)
+->  Submit quiz - score >= 80%
+
+
+
+
+2. Luồng Hỗ Trợ Bài Tập (Smart Search Flow) - Thay thế AI Scanner phức tạp
+Mục tiêu: Giúp học sinh tìm lời giải, nhưng bỏ qua OCR và AI Image Processing (vì tích hợp AI Vision tốn nhiều thời gian).
+Bước 1 - Gặp khó: Học sinh cần tìm tài liệu.
+Bước 2 - Tìm kiếm (Input): Sử dụng Thanh tìm kiếm (Search Bar). Nhập từ khóa (ví dụ: "Hàm số", "Định luật Newton").
+Bước 3 - Kết quả: Hệ thống lọc trong Database (Title bài học, Tag) và trả về danh sách Video/Bài lý thuyết liên quan.
+( Tích hợp ChatGPT API dạng text: Học sinh copy đề bài paste vào -> App gọi API trả về lời giải. Bỏ qua bước xử lý ảnh).
+Option nâng cao nếu còn thời gian: Tạo AI Agent
+
+
+3. Luồng Ôn Tập (Review Flow) - Bỏ thuật toán lặp lại ngắt quãng
+Mục tiêu: Nhắc học lại, nhưng dùng logic đơn giản.
+Bước 1 - Ghi nhận sai: Khi làm Quiz (ở Luồng 1), câu nào sai sẽ được lưu vào danh sách "Cần xem lại".
+Bước 2 - Danh sách ôn tập: Không tạo Flashcard tự động (phức tạp). Thay vào đó, tạo một mục "Kho câu sai".
+Bước 3 - Làm lại: Học sinh vào "Kho câu sai", hệ thống load lại đúng những câu đó để học sinh làm lại cho đến khi đúng.
+-> Check log wrong answer | practice câu sai cho đến khi nào làm đúng hoàn toàn thông qua module Wrong Answer Bank:
+
+
+
+4. Luồng Thi Đấu (Leaderboard Flow) - Bỏ Real-time 1vs1
+Mục tiêu: Tạo cạnh tranh nhưng không dùng Socket.io (Real-time rất tốn công debug).
+Bước 1 - Làm bài thi đua: Admin mở một "Bộ đề tuần". Tất cả học sinh đều có thể vào làm (không cần chờ ghép cặp).
+Bước 2 - Tính điểm: Điểm số dựa trên số câu đúng + thời gian làm bài (làm càng nhanh càng nhiều điểm).
+Bước 3 - Xếp hạng (Leaderboard): Bảng xếp hạng cập nhật sau mỗi lần nộp bài. Học sinh nhìn thấy mình đứng thứ mấy so với toàn trường.
+Kỹ thuật: Chỉ là CRUD bình thường, dễ làm hơn nhiều so với đấu đối kháng thời gian thực.
+5. Luồng Thi Thử (Exam Flow) - Giữ nguyên nhưng bỏ Feedback sâu
+Mục tiêu: Trải nghiệm thi cử.
+Bước 1 - Vào thi: Chọn đề, đồng hồ đếm ngược chạy.
+Bước 2 - Nộp bài: Tính điểm ngay lập tức.
+Bước 3 - Xem đáp án: Hiển thị danh sách câu đúng/sai và đáp án đúng.
+Cắt giảm: Bỏ phần "Link ngược về bài học" tự động (vì cần gắn metadata rất kỹ cho từng câu hỏi). Chỉ hiển thị đáp án đúng/giải thích text.
+
+
+
+-> Teacher create a new Exam
+-> Student submit Exam, List the current student attempts, Return Result via attemptId
+6. Luồng Động Lực (Simple Reward) - Bỏ Cửa hàng vật phẩm phức tạp
+Mục tiêu: Có thưởng nhưng không cần xây dựng hệ thống Inventory/Store.
+Bước 1 - Tích điểm: Mỗi lần hoàn thành bài học (+10 điểm), đạt điểm 10 thi thử (+50 điểm).
+Bước 2 - Danh hiệu (Badges): Thay vì đổi quà (cần quản lý kho, trừ xu), dùng cơ chế Mở khóa Danh hiệu.
+Ví dụ: Đạt 1000 điểm -> Mở khóa huy hiệu "Học bá".
+Đạt 5000 điểm -> Khung Avatar Vàng.
+Kỹ thuật: Chỉ cần check tổng điểm và update trường badge trong User Profile.
+-> Cơ chế tính điểm
+Sự kiện
+Điểm
+Hoàn thành bài học (lần đầu)
++10
+Hoàn thành video (bài không có quiz)
++10
+Vượt quiz (score ≥ 80%)
++10
+Vượt quiz 100%
++50
+
+-> Bảng huy hiệu tự động mở khóa
+Huy hiệu
+Điểm
+Bước đầu tiên
+10
+Chăm chỉ
+100
+Ngôi sao mới nổi
+500
+Học bá
+1000
+Quán quân
+3000
+Khung Avatar Vàng
+5000
+Huyền thoại
+10000
+
+Enum:
+
+
+
+Sub WorkFlow
+1. Cá nhân hóa (Onboarding & Personalization Flow)
+Định nghĩa cách App "hiểu" người dùng ngay từ lần đầu tiên.
+Bước 1 - Xác thực: Người dùng Đăng ký mới hoặc Đăng nhập nhanh qua Google.
+Bước 2 - Thu thập dữ liệu: App yêu cầu chọn Khối lớp (Cấp 1-2-3) 
+Bước 3 - : Hệ thống so khớp dữ liệu đầu vào với kho nội dung để lọc bỏ những bài học không phù hợp (Ví dụ: Học sinh lớp 12 sẽ không thấy bài lớp 6).
+Bước 4 - Đề xuất: App đưa người dùng vào Dashboard.
+
+-> Ngoài hoàn tất việc đăng ký account -> thêm bước cá nhân hoá cho student thông qua endpoint 
+/api/v1/student-profiles/onboarding - POST
+-> Suggest những Course phù hợp cho Account Student
+2. Luồng Bảo mật & Khôi phục (Security & Recovery Flow)
+Định nghĩa cách người dùng lấy lại quyền truy cập khi gặp sự cố.
+Bước 1 - Quên mật khẩu: Người dùng báo mất quyền truy cập tại màn hình đăng nhập.
+Bước 2 - Xác minh: Hệ thống gửi mã OTP về Email hoặc SĐT đã đăng ký để xác nhận chính chủ.
+Bước 3 - Tái thiết lập: Người dùng nhập mật khẩu mới.
+Bước 4 - Đồng bộ lại: Hệ thống đăng xuất tài khoản khỏi các thiết bị cũ (nếu có) và yêu cầu đăng nhập lại để bảo mật.
+
+-> Forgot password:
+
+-> Change password - Cần token đã login sẵn, sau khi change thành công sẽ remove tất cả session -> yêu cầu tiến hành login lại:
+
+
+
+3. Luồng Thanh toán & Nâng cấp (Payment & Subscription Flow)
+Định nghĩa cách chuyển đổi từ người dùng miễn phí sang trả phí.
+Bước 1 - Khám phá: Người dùng chạm vào một tính năng cao cấp (ví dụ: Thi thử nâng cao) và gặp màn hình chặn (Paywall).
+Bước 2 - Chọn gói: Xem bảng so sánh quyền lợi (Free vs Pro) và chọn gói cước (Tháng/Năm).
+Bước 3 - Giao dịch: Chọn cổng thanh toán (SePay,...) và thực hiện chuyển tiền.
+Bước 4 - Mở khóa: Hệ thống xác nhận giao dịch thành công -> Mở khóa ngay lập tức các tính năng Pro và tắt quảng cáo.
+-> Lesson Access Limit — 5 bài/ngày (Free)
+-> Exam Attempt Limit — 2 lần/ngày (Free)
+-> AI Assistant — Cơ bản (Free) vs Nâng cao (Pro): Giới hạn Token lần lượt 600/ 2000
+-> Dashboard — show Ads + Stats depth
+	GET /api/v1/dashboard/stats -> field "weeklyProgress": null for Free users (chart locked behind Pro).
+4. Luồng Kết nối Phụ huynh (Parent Linking Flow)
+Định nghĩa cách thiết lập cơ chế giám sát.
+Bước 1 - Tạo liên kết: Từ tài khoản Học sinh, lấy "Mã kết nối" hoặc gửi lời mời qua Zalo cho Phụ huynh.
+Bước 2 - Xác nhận: Phụ huynh tải App (hoặc dùng phiên bản Web), nhập mã kết nối.
+Bước 3 - Đồng bộ: Hai tài khoản được "link" với nhau.
+Bước 4 - Báo cáo: Định kỳ (hàng tuần/tháng), hệ thống tự động gửi báo cáo tiến độ của con sang máy bố mẹ mà không cần thao tác thêm.
+
+
+-> Student generate code: /api/v1/parent-student-links/generate-code
+-> Parent confirm code: /api/v1/parent-student-links/connect
+*NOTE: Tính năng send code via SMS/Zalo chưa thực thi
+5. Luồng Thông báo & Nhắc nhở (Notification Loop)
+Định nghĩa cách App "lôi kéo" người dùng quay lại.
+Bước 1 - Kích hoạt (Trigger): Hệ thống phát hiện sự kiện (Có bài tập mới, Sắp đến giờ thi đấu, hoặc Học sinh đã nghỉ học 3 ngày).
+Bước 2 - Gửi Push: Bắn thông báo đẩy xuống thiết bị (Ví dụ: "Bạn ơi, đừng quên chuỗi Streak 5 ngày nhé!").
+Bước 3 - Hành động: Người dùng nhấn vào thông báo.
+Bước 4 - Deep Link: App mở thẳng vào màn hình chức năng tương ứng (không mở trang chủ) để người dùng thực hiện hành động ngay.
+6. Luồng Quản trị Nội dung (Admin Content Flow)
+Định nghĩa cách giáo viên/admin đưa bài học lên hệ thống.
+Bước 1 - Upload: Admin tải video bài giảng lên CMS.
+Bước 2 - Gắn tương tác: Admin chọn các mốc thời gian (ví dụ: 02:30) và chèn câu hỏi trắc nghiệm vào đó.
+Bước 3 - Phân loại: Gán thẻ (Tag) cho bài học: Môn (Toán), Lớp (12), Chương (Hàm số).
+Bước 4 - Xuất bản: Bài học xuất hiện trên lộ trình của tất cả học sinh đang theo học chương trình đó.
+
+
+

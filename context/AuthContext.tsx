@@ -78,6 +78,10 @@ interface AuthContextValue extends AuthState {
   loginWithEmail: (payload: LoginPayload) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithFacebook: () => Promise<void>;
+  requestPasswordResetOtp: (payload: { email: string }) => Promise<void>;
+  verifyPasswordResetOtp: (payload: { email: string; otp: string }) => Promise<{ resetToken: string }>;
+  resetPasswordWithToken: (payload: { resetToken: string; newPassword: string }) => Promise<void>;
+  changePassword: (payload: { currentPassword: string; newPassword: string }) => Promise<void>;
   hydrateFromOAuthLogin: (payload: {
     user: AuthUser;
     accessToken: string;
@@ -114,6 +118,28 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // Complete WebBrowser session for OAuth
 WebBrowser.maybeCompleteAuthSession();
 
+async function readErrorMessage(res: Response): Promise<string> {
+  // Backend sometimes returns JSON error envelope; sometimes plain text.
+  try {
+    const text = await res.text();
+    if (!text) return "";
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const json: any = JSON.parse(text);
+      return (
+        json?.message ||
+        json?.error ||
+        json?.data?.message ||
+        text
+      );
+    } catch {
+      return text;
+    }
+  } catch {
+    return "";
+  }
+}
+
 async function apiLoginWithEmail(payload: LoginPayload): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/email/login`, {
     method: "POST",
@@ -143,6 +169,63 @@ async function apiLoginWithEmail(payload: LoginPayload): Promise<LoginResponse> 
       avatarUrl: data.user?.avatarUrl ?? null,
     },
   };
+}
+
+async function apiRequestPasswordResetOtp(payload: { email: string }): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/forgot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: payload.email }),
+  });
+
+  // Intentionally returns same response for unknown emails.
+  if (!res.ok) {
+    const msg = await readErrorMessage(res);
+    throw new Error(msg || "Không thể gửi OTP. Vui lòng thử lại.");
+  }
+}
+
+async function apiVerifyPasswordResetOtp(payload: {
+  email: string;
+  otp: string;
+}): Promise<{ resetToken: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: payload.email, otp: payload.otp }),
+  });
+
+  if (!res.ok) {
+    const msg = await readErrorMessage(res);
+    throw new Error(msg || "OTP không hợp lệ hoặc đã hết hạn.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const raw: any = await res.json();
+  const resetToken: string | undefined = raw?.resetToken ?? raw?.data?.resetToken;
+  if (!resetToken) {
+    throw new Error("Không nhận được reset token từ hệ thống.");
+  }
+  return { resetToken };
+}
+
+async function apiResetPasswordWithToken(payload: {
+  resetToken: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      resetToken: payload.resetToken,
+      newPassword: payload.newPassword,
+    }),
+  });
+
+  if (!res.ok) {
+    const msg = await readErrorMessage(res);
+    throw new Error(msg || "Không thể đặt lại mật khẩu. Vui lòng thử lại.");
+  }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -278,6 +361,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }
   }, []);
+
+  const requestPasswordResetOtp = useCallback(async (payload: { email: string }) => {
+    await apiRequestPasswordResetOtp({ email: payload.email.trim() });
+  }, []);
+
+  const verifyPasswordResetOtp = useCallback(
+    async (payload: { email: string; otp: string }) => {
+      return await apiVerifyPasswordResetOtp({
+        email: payload.email.trim(),
+        otp: payload.otp.trim(),
+      });
+    },
+    []
+  );
+
+  const resetPasswordWithToken = useCallback(
+    async (payload: { resetToken: string; newPassword: string }) => {
+      await apiResetPasswordWithToken({
+        resetToken: payload.resetToken,
+        newPassword: payload.newPassword,
+      });
+      // Step 4 (re-sync): backend revokes sessions; locally, ensure we clear any cached auth.
+      await logout();
+    },
+    [logout]
+  );
+
+  const changePassword = useCallback(
+    async (payload: { currentPassword: string; newPassword: string }) => {
+      const accessToken = state.tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error("Bạn cần đăng nhập để đổi mật khẩu.");
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          currentPassword: payload.currentPassword,
+          newPassword: payload.newPassword,
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        throw new Error(msg || "Đổi mật khẩu thất bại. Vui lòng thử lại.");
+      }
+
+      // Backend revokes sessions; force local logout so user must re-login.
+      await logout();
+    },
+    [logout, state.tokens?.accessToken]
+  );
 
   const hydrateFromOAuthLogin = useCallback(
     async (payload: {
@@ -666,6 +805,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loginWithEmail,
       loginWithGoogle,
       loginWithFacebook,
+      requestPasswordResetOtp,
+      verifyPasswordResetOtp,
+      resetPasswordWithToken,
+      changePassword,
       hydrateFromOAuthLogin,
       completeOAuthProfile,
       logout,
@@ -678,6 +821,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loginWithEmail,
       loginWithGoogle,
       loginWithFacebook,
+      requestPasswordResetOtp,
+      verifyPasswordResetOtp,
+      resetPasswordWithToken,
+      changePassword,
       hydrateFromOAuthLogin,
       completeOAuthProfile,
       logout,

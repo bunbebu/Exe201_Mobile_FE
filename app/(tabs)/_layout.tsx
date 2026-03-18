@@ -100,6 +100,8 @@ export default function TabLayout() {
       <Tabs.Screen name="add" />
       <Tabs.Screen name="stats" />
       <Tabs.Screen name="profile" />
+      {/* Hidden routes (reachable via deep links / buttons) */}
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

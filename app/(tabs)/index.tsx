@@ -28,12 +28,13 @@ interface QuickActionProps {
   label: string;
   color: string;
   bgColor: string;
+  onPress?: () => void;
 }
 
-function QuickAction({ icon, label, color, bgColor }: QuickActionProps) {
+function QuickAction({ icon, label, color, bgColor, onPress }: QuickActionProps) {
   const colors = useColors();
   return (
-    <TouchableOpacity style={styles.quickAction}>
+    <TouchableOpacity style={styles.quickAction} onPress={onPress}>
       <View style={[styles.quickActionIcon, { backgroundColor: bgColor }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
@@ -85,7 +86,13 @@ export default function HomeScreen() {
   const [selectedCourseTitle, setSelectedCourseTitle] = useState<string>('Lộ trình học của bạn');
 
   const quickActions: QuickActionProps[] = [
-    { icon: 'book-outline', label: 'Môn học', color: '#3B82F6', bgColor: colors.qaBlueBg },
+    {
+      icon: 'refresh-circle-outline',
+      label: 'Ôn tập',
+      color: '#3B82F6',
+      bgColor: colors.qaBlueBg,
+      onPress: () => router.push('/review'),
+    },
     { icon: 'clipboard-outline', label: 'Bài tập', color: '#F59E0B', bgColor: colors.qaYellowBg },
     { icon: 'checkbox-outline', label: 'Kiểm tra', color: '#10B981', bgColor: colors.qaGreenBg },
     { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: colors.qaPurpleBg },
@@ -357,7 +364,10 @@ export default function HomeScreen() {
               )}
             </View>
           </View>
-          <TouchableOpacity style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}>
+          <TouchableOpacity
+            style={[styles.notificationBtn, { backgroundColor: colors.notificationBtnBg }]}
+            onPress={() => router.push("/notifications" as any)}
+          >
             <Ionicons name="notifications-outline" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
