@@ -46,7 +46,7 @@ export default function ForgotPassword() {
             text: 'OK',
             onPress: () => {
               router.push({
-                pathname: '/(auth)/reset-password',
+                pathname: '/(auth)/verify-otp',
                 params: { email: email.trim() },
               });
             },

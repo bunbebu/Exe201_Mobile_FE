@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
@@ -12,9 +14,17 @@ import {
     View,
 } from 'react-native';
 
+import { useAuth } from '@/context/AuthContext';
+
 export default function VerifyOTP() {
-    const [otp, setOtp] = useState(['', '', '', '']);
-    const [timer, setTimer] = useState(59);
+    const params = useLocalSearchParams<{ email?: string }>();
+    const email = (params.email as string | undefined) ?? '';
+
+    const { requestPasswordResetOtp, verifyPasswordResetOtp } = useAuth();
+
+    const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
+    const [timer, setTimer] = useState(600); // 10 minutes
+    const [isLoading, setIsLoading] = useState(false);
     const inputRefs = useRef<(TextInput | null)[]>([]);
 
     useEffect(() => {
@@ -26,11 +36,11 @@ export default function VerifyOTP() {
 
     const handleOtpChange = (value: string, index: number) => {
         const newOtp = [...otp];
-        newOtp[index] = value;
+        newOtp[index] = value.replace(/[^0-9]/g, '').slice(-1);
         setOtp(newOtp);
 
         // Auto focus next input
-        if (value && index < 3) {
+        if (value && index < 5) {
             inputRefs.current[index + 1]?.focus();
         }
     };
@@ -41,14 +51,57 @@ export default function VerifyOTP() {
         }
     };
 
-    const handleVerify = () => {
-        // Mock verify OTP - navigate to personalize screen
-        router.push('/(auth)/personalize');
+    const handleVerify = async () => {
+        const otpString = otp.join('');
+
+        if (!email.trim()) {
+            // Mantém compatibilidade com fluxo mock do register (chưa gửi email).
+            router.push('/(auth)/personalize');
+            return;
+        }
+
+        if (otpString.length !== 6) {
+            Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ 6 số OTP.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const { resetToken } = await verifyPasswordResetOtp({
+                email: email.trim(),
+                otp: otpString,
+            });
+
+            router.push({
+                pathname: '/(auth)/reset-password',
+                params: { resetToken, email: email.trim() },
+            });
+        } catch (error: any) {
+            console.error('Error verifying OTP:', error);
+            Alert.alert('Lỗi', error?.message || 'OTP không hợp lệ. Vui lòng thử lại.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleResend = () => {
-        setTimer(59);
-        // Mock resend OTP
+    const handleResend = async () => {
+        if (!email.trim()) {
+            Alert.alert('Thiếu thông tin', 'Không tìm thấy email để gửi lại OTP.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await requestPasswordResetOtp({ email: email.trim() });
+            setTimer(600);
+            setOtp(['', '', '', '', '', '']);
+            Alert.alert('Thành công', 'Nếu email này đã được đăng ký, OTP mới đã được gửi.');
+        } catch (error: any) {
+            console.error('Error resending OTP:', error);
+            Alert.alert('Lỗi', error?.message || 'Không thể gửi lại OTP. Vui lòng thử lại.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -72,12 +125,14 @@ export default function VerifyOTP() {
                 <View style={styles.content}>
                     <Text style={styles.title}>Xác thực OTP</Text>
                     <Text style={styles.subtitle}>
-                        Nhập mã xác thực đã gửi tới Email/SĐT của{'\n'}bạn
+                        {email
+                            ? `Nhập mã OTP đã gửi đến ${email}`
+                            : 'Nhập mã OTP của bạn'}
                     </Text>
 
                     {/* OTP Input */}
                     <View style={styles.otpContainer}>
-                        {[0, 1, 2, 3].map((index) => (
+                        {[0, 1, 2, 3, 4, 5].map((index) => (
                             <TextInput
                                 key={index}
                                 ref={(ref) => (inputRefs.current[index] = ref)}
@@ -86,11 +141,12 @@ export default function VerifyOTP() {
                                     otp[index] ? styles.otpInputFilled : null,
                                 ]}
                                 value={otp[index]}
-                                onChangeText={(value) => handleOtpChange(value.slice(-1), index)}
+                                onChangeText={(value) => handleOtpChange(value, index)}
                                 onKeyPress={(e) => handleKeyPress(e, index)}
                                 keyboardType="number-pad"
                                 maxLength={1}
                                 selectTextOnFocus
+                                editable={!isLoading}
                             />
                         ))}
                     </View>
@@ -105,11 +161,16 @@ export default function VerifyOTP() {
                     <TouchableOpacity
                         style={styles.resendContainer}
                         onPress={handleResend}
-                        disabled={timer > 0}
+                        disabled={timer > 0 || isLoading || !email.trim()}
                     >
                         <Text style={styles.resendText}>
                             Chưa nhận được mã?{' '}
-                            <Text style={[styles.resendLink, timer > 0 && styles.resendLinkDisabled]}>
+                            <Text
+                                style={[
+                                    styles.resendLink,
+                                    (timer > 0 || isLoading || !email.trim()) && styles.resendLinkDisabled,
+                                ]}
+                            >
                                 Gửi lại mã
                             </Text>
                         </Text>
@@ -120,12 +181,16 @@ export default function VerifyOTP() {
                 <TouchableOpacity
                     style={[
                         styles.verifyButton,
-                        otp.every((digit) => digit) ? null : styles.verifyButtonDisabled,
+                        (otp.join('').length !== 6 || isLoading) ? styles.verifyButtonDisabled : null,
                     ]}
                     onPress={handleVerify}
-                    disabled={!otp.every((digit) => digit)}
+                    disabled={otp.join('').length !== 6 || isLoading}
                 >
-                    <Text style={styles.verifyButtonText}>Xác nhận</Text>
+                    {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.verifyButtonText}>Xác nhận OTP</Text>
+                    )}
                 </TouchableOpacity>
             </KeyboardAvoidingView>
         </SafeAreaView>

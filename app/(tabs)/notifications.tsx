@@ -20,6 +20,7 @@ import { API_BASE_URL } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/use-colors";
 import { getExpoPushTokenSafe, scheduleLocalReminder } from "@/lib/notifications";
+import { NovuInbox } from "@/components/novu-inbox";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const isTablet = SCREEN_WIDTH >= 768;
@@ -114,13 +115,13 @@ export default function NotificationsScreen() {
   }, [tokens?.accessToken]);
 
   const headline = useMemo(() => {
-    if (!ctx) return "Fique por dentro";
-    return "Seu Inbox está pronto";
+    if (!ctx) return "Stay in the loop";
+    return "Your inbox is ready";
   }, [ctx]);
 
   const subtitle = useMemo(() => {
-    if (!ctx) return "Ative lembretes e volte para manter seu streak.";
-    return "Toque em um push e caia direto na ação certa.";
+    if (!ctx) return "Enable reminders and come back to keep your streak.";
+    return "Open notifications and jump straight to the right action.";
   }, [ctx]);
 
   const togglePush = async (next: boolean) => {
@@ -133,7 +134,7 @@ export default function NotificationsScreen() {
     }
 
     if (!canUsePush) {
-      Alert.alert("Não suportado", "Push notifications não estão disponíveis no Web.");
+      Alert.alert("Not supported", "Push notifications are not available on Web.");
       setPushEnabled(false);
       await AsyncStorage.setItem(STORAGE_KEYS.PUSH_ENABLED, "false");
       return;
@@ -141,7 +142,7 @@ export default function NotificationsScreen() {
 
     const token = await getExpoPushTokenSafe();
     if (!token) {
-      Alert.alert("Permissão necessária", "Ative as permissões de notificação para receber lembretes.");
+      Alert.alert("Permission required", "Enable notification permission to receive reminders.");
       setPushEnabled(false);
       await AsyncStorage.setItem(STORAGE_KEYS.PUSH_ENABLED, "false");
       return;
@@ -152,22 +153,33 @@ export default function NotificationsScreen() {
 
   const sendDemo = async () => {
     try {
+      if (!canUsePush) {
+        Alert.alert(
+          "Not available on Web",
+          "Expo push/local notifications can't be tested on the Web build. Run the app on a physical device (Android/iOS) and allow notifications."
+        );
+        return;
+      }
+
       if (!pushEnabled) {
-        Alert.alert("Ative primeiro", "Ative Push para testar o lembrete.");
+        Alert.alert("Enable first", "Turn on Push to test the reminder.");
         return;
       }
 
       await scheduleLocalReminder({
-        title: "Ei, não quebra o streak!",
-        body: "Você está com 5 dias seguidos. Faça 1 lição agora e mantém a sequência.",
+        title: "Keep your streak going!",
+        body: "You're on a 5-day streak. Complete 1 lesson now to keep it alive.",
         secondsFromNow: 3,
         data: { href: "/review" },
       });
 
-      Alert.alert("Agendado", "Em ~3s você vai receber um push. Toque nele para abrir direto o Ôn tập.");
+      Alert.alert(
+        "Scheduled",
+        "In ~3 seconds you'll get a notification. Tap it to deep-link directly to the Review screen."
+      );
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Erro", e?.message ?? "Não foi possível agendar a notificação.");
+      Alert.alert("Error", e?.message ?? "Couldn't schedule the notification.");
     }
   };
 
@@ -178,7 +190,7 @@ export default function NotificationsScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Notificações</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -195,49 +207,61 @@ export default function NotificationsScreen() {
 
           <View style={styles.pillsRow}>
             <Pill icon="flame" label="Streak" tone="amber" />
-            <Pill icon="clipboard-outline" label="Bài tập mới" tone="blue" />
-            <Pill icon="alarm-outline" label="Nhắc lịch" tone="green" />
+            <Pill icon="clipboard-outline" label="New tasks" tone="blue" />
+            <Pill icon="alarm-outline" label="Reminders" tone="green" />
           </View>
 
           {isLoading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={colors.tint} />
               <Text style={[styles.loadingText, { color: colors.secondaryText }]}>
-                Carregando contexto...
+                Loading inbox context...
               </Text>
             </View>
           ) : ctx ? (
             <View style={[styles.ctxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.ctxTitle, { color: colors.text }]}>Inbox Context (Novu)</Text>
-              <Text style={[styles.ctxLine, { color: colors.secondaryText }]}>
-                subscriberId: <Text style={[styles.ctxMono, { color: colors.text }]}>{ctx.subscriberId}</Text>
-              </Text>
-              <Text style={[styles.ctxLine, { color: colors.secondaryText }]}>
-                socketUrl: <Text style={[styles.ctxMono, { color: colors.text }]}>{ctx.socketUrl}</Text>
-              </Text>
-              <Text style={[styles.ctxHint, { color: colors.mutedText }]}>
-                Esse endpoint confirma que o backend já está pronto para inbox/in-app notifications.
-              </Text>
+              <Text style={[styles.ctxTitle, { color: colors.text }]}>Inbox</Text>
+
+              {isWeb ? (
+                <View style={styles.inboxWrap}>
+                  <NovuInbox
+                    applicationIdentifier={ctx.applicationIdentifier}
+                    subscriberId={ctx.subscriberId}
+                    socketUrl={ctx.socketUrl}
+                    subscriberHash={ctx.subscriberHash}
+                  />
+                </View>
+              ) : (
+                <>
+                  <Text style={[styles.ctxLine, { color: colors.secondaryText }]}>
+                    subscriberId:{" "}
+                    <Text style={[styles.ctxMono, { color: colors.text }]}>{ctx.subscriberId}</Text>
+                  </Text>
+                  <Text style={[styles.ctxHint, { color: colors.mutedText }]}>
+                    Novu Inbox is currently shown only on Web. On mobile, use Push & deep link below.
+                  </Text>
+                </>
+              )}
             </View>
           ) : (
             <View style={[styles.ctxCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.ctxTitle, { color: colors.text }]}>Inbox</Text>
               <Text style={[styles.ctxHint, { color: colors.secondaryText }]}>
-                Não foi possível carregar o contexto agora. Você ainda pode ativar push e testar deep link.
+                Couldn't load inbox context right now. You can still enable push and test deep links below.
               </Text>
             </View>
           )}
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Push & lembretes</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Push & reminders</Text>
 
           <View style={[styles.card, { backgroundColor: colors.cardBg }]}>
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.rowTitle, { color: colors.text }]}>Ativar Push</Text>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>Enable Push</Text>
                 <Text style={[styles.rowSubtitle, { color: colors.secondaryText }]}>
-                  Receba lembretes e abra direto na tela certa (deep link).
+                  Get reminders and open straight to the right screen (deep link).
                 </Text>
               </View>
               <Switch
@@ -263,11 +287,11 @@ export default function NotificationsScreen() {
               disabled={!pushEnabled}
             >
               <Ionicons name="paper-plane-outline" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>Testar lembrete (deep link)</Text>
+              <Text style={styles.primaryBtnText}>Test notification (deep link)</Text>
             </TouchableOpacity>
 
             <Text style={[styles.footnote, { color: colors.mutedText }]}>
-              Toque no push: o app vai abrir direto em `"/review"` (sem passar pela Home).
+              Tap the notification: the app will open directly at `"/review"` (no Home in-between).
             </Text>
           </View>
         </View>
@@ -379,6 +403,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     lineHeight: 18,
+  },
+  inboxWrap: {
+    marginTop: 10,
+    width: "100%",
+    minHeight: 220,
   },
   section: {
     paddingHorizontal: isTablet ? 32 : isWeb ? 24 : 20,

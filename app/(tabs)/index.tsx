@@ -94,7 +94,13 @@ export default function HomeScreen() {
       onPress: () => router.push('/review'),
     },
     { icon: 'clipboard-outline', label: 'Bài tập', color: '#F59E0B', bgColor: colors.qaYellowBg },
-    { icon: 'checkbox-outline', label: 'Kiểm tra', color: '#10B981', bgColor: colors.qaGreenBg },
+    {
+      icon: 'checkbox-outline',
+      label: 'Kiểm tra',
+      color: '#10B981',
+      bgColor: colors.qaGreenBg,
+      onPress: () => router.push('/exams' as any),
+    },
     { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: colors.qaPurpleBg },
   ];
 

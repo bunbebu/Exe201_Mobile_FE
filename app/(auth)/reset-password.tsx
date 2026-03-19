@@ -18,16 +18,20 @@ import {
 import { useAuth } from '@/context/AuthContext';
 
 export default function ResetPassword() {
-  const params = useLocalSearchParams<{ email: string }>();
-  const [email] = useState(params.email || '');
+  const params = useLocalSearchParams<{ email?: string; resetToken?: string }>();
+  const initialEmail = (params.email as string | undefined) ?? '';
+  const initialResetToken = (params.resetToken as string | undefined) ?? null;
+  const initialStep: 'otp' | 'password' = initialResetToken ? 'password' : 'otp';
+
+  const [email] = useState(initialEmail);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [timer, setTimer] = useState(600); // 10 minutes in seconds
-  const [step, setStep] = useState<'otp' | 'password'>('otp');
-  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [step, setStep] = useState<'otp' | 'password'>(initialStep);
+  const [resetToken, setResetToken] = useState<string | null>(initialResetToken);
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const { requestPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithToken } = useAuth();
@@ -63,6 +67,11 @@ export default function ResetPassword() {
     const otpString = otp.join('');
     if (otpString.length !== 6) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ 6 số OTP.');
+      return;
+    }
+
+    if (!email.trim()) {
+      Alert.alert('Lỗi', 'Không tìm thấy email để xác thực OTP.');
       return;
     }
 
@@ -126,6 +135,10 @@ export default function ResetPassword() {
   };
 
   const handleResendOTP = async () => {
+    if (!email.trim()) {
+      Alert.alert('Lỗi', 'Không tìm thấy email để gửi lại OTP.');
+      return;
+    }
     setIsLoading(true);
     try {
       await requestPasswordResetOtp({ email: email.trim() });

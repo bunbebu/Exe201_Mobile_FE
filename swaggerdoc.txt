@@ -1,75 +1,22 @@
-Notifications
+Parent-Student Links
 
 
-GET
-/api/v1/notifications/me/inbox-context
-Get personalized Novu Inbox context for current authenticated user
+POST
+/api/v1/parent-student-links/generate-code
+Step 1 — Generate link code (Student)
 
+
+Generates an 8-character uppercase alphanumeric code valid for 24 hours. The student shares this code with their parent so the parent can connect. If an unexpired code already exists, it is returned without creating a new one.
 
 Parameters
-Cancel
+Try it out
 No parameters
 
-Execute
-Clear
-Responses
-Curl
-
-curl -X 'GET' \
-  'https://edutech-backend-y2zc.onrender.com/api/v1/notifications/me/inbox-context' \
-  -H 'accept: application/json' \
-  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OWI4YzQyNmQyMGI2NDA3Y2VjY2UwZTMiLCJlbWFpbCI6InRoaWVudG0wMUBnbWFpbC5jb20iLCJyb2xlIjoiU1RVREVOVCIsInNpZCI6IjY5YmE0NThhMzk3ZmViZGMxZWVlMjUxZCIsImlhdCI6MTc3MzgxNTE3OCwiZXhwIjoxNzczODQzOTc4fQ.-Zq6ss-yegz_Pj97gDEHwaYT6PDAW6vyucc5WIOxzEE'
-Request URL
-https://edutech-backend-y2zc.onrender.com/api/v1/notifications/me/inbox-context
-Server response
-Code	Details
-200	
-Response body
-Download
-{
-  "success": true,
-  "data": {
-    "applicationIdentifier": "",
-    "subscriberId": "edutech_69b8c426d20b6407cecce0e3",
-    "socketUrl": "wss://socket.novu.co",
-    "subscriberHash": null
-  },
-  "message": "Novu inbox context retrieved successfully",
-  "statusCode": 200
-}
-Response headers
- access-control-allow-credentials: true 
- alt-svc: h3=":443"; ma=86400 
- cf-cache-status: DYNAMIC 
- cf-ray: 9de2e2990a7dce7a-SIN 
- content-encoding: br 
- content-length: 169 
- content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline';script-src 'self';img-src 'self' https: data:;base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests 
- content-type: application/json; charset=utf-8 
- cross-origin-opener-policy: same-origin 
- cross-origin-resource-policy: same-origin 
- date: Wed,18 Mar 2026 08:32:09 GMT 
- etag: W/"e6-khfBdocLkh7NE3JaxQF01pJKbEg" 
- origin-agent-cluster: ?1 
- priority: u=1,i 
- referrer-policy: no-referrer 
- rndr-id: 4ea3d687-7d5d-4d2f 
- server: cloudflare 
- server-timing: cfExtPri 
- strict-transport-security: max-age=31536000; includeSubDomains; preload 
- vary: Origin,Accept-Encoding 
- x-content-type-options: nosniff 
- x-dns-prefetch-control: off 
- x-download-options: noopen 
- x-frame-options: SAMEORIGIN 
- x-permitted-cross-domain-policies: none 
- x-render-origin-server: Render 
- x-xss-protection: 0 
-Request duration
-509 ms
 Responses
 Code	Description	Links
 200	
+Link code generated successfully
+
 Media type
 
 application/json
@@ -77,8 +24,518 @@ Controls Accept header.
 Example Value
 Schema
 {
-  "applicationIdentifier": "cAfLT0g15YGS",
-  "subscriberId": "edutech_69b2c01a0b131f8a6a1b02b0",
-  "socketUrl": "wss://socket.novu.co",
-  "subscriberHash": "c8d9a23702f21cbf7e78838f9f4ecf6c91a3f6cbe2991f8ec8e5a830f2c2e4ad"
+  "linkCode": "A3BX7K2M",
+  "expiresAt": "2025-01-01T12:00:00.000Z"
 }
+No links
+400	
+Student profile not found
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/generate-code/send
+Step 1.5 — Send code via SMS/Zalo (Student)
+
+
+Sends the generated link code to a parent via SMS or Zalo channel. Includes a pre-formatted Vietnamese message with instructions. Requires parent phone number in E.164 format (e.g., +84901234567).
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+Code sent successfully
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "success": true,
+  "messageId": "msg_12345abc"
+}
+No links
+400	
+Invalid phone number or channel
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/connect
+Step 2 — Connect by code (Parent)
+
+
+Validates the 8-character link code, verifies it has not expired, and establishes a verified parent-student relationship. The code is consumed on success and cannot be reused.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "code": "A3BX7K2M"
+}
+Responses
+Code	Description	Links
+200	
+Connected to student successfully
+
+No links
+400	
+Invalid / expired code, or already linked
+
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-children
+Get my children (Parent)
+
+
+Returns all verified student profiles linked to the authenticated parent, including XP, streak, grade level, and school information.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+List of linked children
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "linkId": "507f1f77bcf86cd799439011",
+    "studentProfileId": "507f1f77bcf86cd799439012",
+    "fullName": "Nguyen Van A",
+    "gradeLevel": "1",
+    "schoolName": {},
+    "xpTotal": 1240,
+    "currentStreak": 7,
+    "linkedAt": "2025-01-01T00:00:00.000Z"
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-parents
+Get my parents (Student)
+
+
+Returns all verified parent profiles linked to the authenticated student.
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+List of linked parents
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+[
+  {
+    "linkId": "507f1f77bcf86cd799439011",
+    "parentProfileId": "507f1f77bcf86cd799439013",
+    "fullName": "Nguyen Thi B",
+    "phoneNumber": "+84901234567",
+    "linkedAt": "2025-01-01T00:00:00.000Z"
+  }
+]
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/my-children/{linkId}/progress
+View child progress report (Parent)
+
+
+Returns an aggregated progress report for the child associated with the given link. Includes lesson stats, quiz scores, XP earned, and streak info for the chosen period (weekly = last 7 days, monthly = last 30 days).
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+period
+string
+(query)
+Report period — weekly (default) or monthly
+
+Available values : weekly, monthly
+
+
+--
+Responses
+Code	Description	Links
+200	
+Progress report retrieved
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "studentProfileId": "507f1f77bcf86cd799439012",
+  "fullName": "Nguyễn Văn A",
+  "gradeLevel": "1",
+  "schoolName": {},
+  "xpTotal": 1240,
+  "currentStreak": 7,
+  "diamondBalance": 320,
+  "periodStart": "2025-01-01T00:00:00.000Z",
+  "periodEnd": "2025-01-07T23:59:59.999Z",
+  "lessonsStarted": 5,
+  "lessonsCompleted": 3,
+  "totalWatchMinutes": 74,
+  "quizzesAttempted": 4,
+  "avgQuizScore": 78.5,
+  "xpEarnedThisPeriod": 340,
+  "quizAttempts": [
+    {
+      "completedAt": "2025-01-06T08:00:00.000Z",
+      "score": 85,
+      "totalQuestions": 10,
+      "correctAnswers": 8
+    }
+  ],
+  "highlightText": "Bé đã hoàn thành 3 bài học và đạt điểm trung bình 78.5 trong tuần này 🎉"
+}
+No links
+400	
+Link not found or not verified
+
+No links
+401	
+Unauthorized
+
+No links
+
+POST
+/api/v1/parent-student-links/send-report
+Send progress report email on demand (Parent/Admin)
+
+
+Triggers an immediate progress report email to the parent for the given link. Use period in the body or default to weekly.
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "linkId": "507f1f77bcf86cd799439011",
+  "period": "weekly"
+}
+Responses
+Code	Description	Links
+200	
+Report email sent successfully
+
+No links
+400	
+Link not found or not verified
+
+No links
+401	
+Unauthorized
+
+No links
+
+DELETE
+/api/v1/parent-student-links/my-children/{linkId}
+Revoke a parent link — student side
+
+
+Permanently removes the parent-student link. The student must be a party to the link.
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+Responses
+Code	Description	Links
+200	
+Link revoked successfully
+
+No links
+400	
+Link not found or not authorized
+
+No links
+401	
+Unauthorized
+
+No links
+
+DELETE
+/api/v1/parent-student-links/my-parents/{linkId}
+Revoke a parent link — parent side
+
+
+Permanently removes the parent-student link. The parent must be a party to the link.
+
+Parameters
+Try it out
+Name	Description
+linkId *
+string
+(path)
+linkId
+Responses
+Code	Description	Links
+200	
+Link revoked successfully
+
+No links
+400	
+Link not found or not authorized
+
+No links
+401	
+Unauthorized
+
+No links
+
+GET
+/api/v1/parent-student-links/parent/{parentId}
+Get all links for a parent profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/parent/{parentId}/verified
+Get verified links for a parent profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/student/{studentId}
+Get all links for a student profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/student/{studentId}/verified
+Get verified links for a student profile ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/{parentId}/{studentId}
+Get a specific link by parent + student profile IDs (Admin)
+
+Parameters
+Try it out
+Name	Description
+parentId *
+string
+(path)
+parentId
+studentId *
+string
+(path)
+studentId
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links/{id}
+Get a link by ID (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+PUT
+/api/v1/parent-student-links/{id}
+Update a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "parentId": "507f1f77bcf86cd799439011",
+  "studentId": "507f1f77bcf86cd799439012",
+  "isVerified": true
+}
+Responses
+Code	Description	Links
+200	
+No links
+
+DELETE
+/api/v1/parent-student-links/{id}
+Delete a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200	
+No links
+
+GET
+/api/v1/parent-student-links
+List all links (Admin)
+
+Parameters
+Try it out
+No parameters
+
+Responses
+Code	Description	Links
+200	
+No links
+
+POST
+/api/v1/parent-student-links
+Create a link manually (Admin)
+
+Parameters
+Try it out
+No parameters
+
+Request body
+
+application/json
+Example Value
+Schema
+{
+  "parentId": "507f1f77bcf86cd799439011",
+  "studentId": "507f1f77bcf86cd799439012",
+  "isVerified": false
+}
+Responses
+Code	Description	Links
+201	
+No links
+
+PUT
+/api/v1/parent-student-links/{id}/verify
+Manually verify a link (Admin)
+
+Parameters
+Try it out
+Name	Description
+id *
+string
+(path)
+id
+Responses
+Code	Description	Links
+200

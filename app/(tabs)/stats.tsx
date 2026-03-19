@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
@@ -8,24 +9,114 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
+
+interface DashboardResponse {
+    progressSummary?: {
+        totalLessons?: number;
+        completedLessons?: number;
+        progressPercent?: number;
+        totalXP?: number;
+    };
+    userInfo?: {
+        currentStreak?: number;
+    };
+    plan?: {
+        dailyLimits?: {
+            lessons?: { limit?: number; description?: string };
+            exams?: { limit?: number; description?: string };
+        };
+    };
+}
+
+interface DashboardStatsResponse {
+    lessonStats?: {
+        completed?: number;
+        inProgress?: number;
+        notStarted?: number;
+        total?: number;
+    };
+    achievements?: Array<{
+        name?: string;
+        description?: string;
+        earned?: boolean;
+    }>;
+}
 
 export default function StatsScreen() {
     const colors = useColors();
+    const { tokens } = useAuth();
+    const [isLoading, setIsLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+    const [dashboardStats, setDashboardStats] = useState<DashboardStatsResponse | null>(null);
 
-    const weekData = [
-        { day: 'T2', hours: 2, height: 40 },
-        { day: 'T3', hours: 3, height: 60 },
-        { day: 'T4', hours: 1.5, height: 30 },
-        { day: 'T5', hours: 4, height: 80 },
-        { day: 'T6', hours: 2.5, height: 50 },
-        { day: 'T7', hours: 3.5, height: 70 },
-        { day: 'CN', hours: 1, height: 20 },
-    ];
+    useEffect(() => {
+        const fetchStatsData = async () => {
+            if (!tokens?.accessToken) {
+                setIsLoading(false);
+                return;
+            }
+
+            setIsLoading(true);
+            setErrorMessage(null);
+            try {
+                const headers = {
+                    Authorization: `Bearer ${tokens.accessToken}`,
+                };
+
+                const [dashboardRes, statsRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/v1/dashboard`, { headers }),
+                    fetch(`${API_BASE_URL}/api/v1/dashboard/stats`, { headers }),
+                ]);
+
+                if (!dashboardRes.ok || !statsRes.ok) {
+                    throw new Error('Không thể tải dữ liệu thống kê');
+                }
+
+                const dashboardJson: DashboardResponse = await dashboardRes.json();
+                const statsJson: DashboardStatsResponse = await statsRes.json();
+                setDashboard(dashboardJson);
+                setDashboardStats(statsJson);
+            } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : 'Đã có lỗi xảy ra');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        void fetchStatsData();
+    }, [tokens?.accessToken]);
+
+    const totalLessons = dashboard?.progressSummary?.totalLessons ?? 0;
+    const completedLessons = dashboard?.progressSummary?.completedLessons ?? 0;
+    const progressPercent = dashboard?.progressSummary?.progressPercent ?? 0;
+    const totalXP = dashboard?.progressSummary?.totalXP ?? 0;
+    const currentStreak = dashboard?.userInfo?.currentStreak ?? 0;
+    const lessonLimit = dashboard?.plan?.dailyLimits?.lessons?.limit ?? 0;
+    const examLimit = dashboard?.plan?.dailyLimits?.exams?.limit ?? 0;
+    const lessonStats = dashboardStats?.lessonStats;
+
+    const lessonStatusData = useMemo(
+        () => [
+            { label: 'Hoàn thành', value: lessonStats?.completed ?? 0, color: '#10B981' },
+            { label: 'Đang học', value: lessonStats?.inProgress ?? 0, color: '#3B82F6' },
+            { label: 'Chưa bắt đầu', value: lessonStats?.notStarted ?? 0, color: '#F59E0B' },
+        ],
+        [lessonStats?.completed, lessonStats?.inProgress, lessonStats?.notStarted]
+    );
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.tint} />
+                    <Text style={[styles.loadingText, { color: colors.secondaryText }]}>Đang tải thống kê...</Text>
+                </View>
+            ) : (
+                <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={[styles.headerTitle, { color: colors.text }]}>Thống kê</Text>
@@ -35,56 +126,62 @@ export default function StatsScreen() {
                 <View style={styles.overviewContainer}>
                     <View style={[styles.overviewCard, styles.primaryCard]}>
                         <Ionicons name="time-outline" size={24} color="#fff" />
-                        <Text style={styles.overviewValueWhite}>24h</Text>
-                        <Text style={styles.overviewLabelWhite}>Tổng giờ học</Text>
+                        <Text style={styles.overviewValueWhite}>{progressPercent}%</Text>
+                        <Text style={styles.overviewLabelWhite}>Tiến độ tổng</Text>
                     </View>
                     <View style={[styles.overviewCard, { backgroundColor: colors.cardBg }]}>
                         <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
-                        <Text style={[styles.overviewValue, { color: '#10B981' }]}>45</Text>
+                        <Text style={[styles.overviewValue, { color: '#10B981' }]}>{completedLessons}</Text>
                         <Text style={[styles.overviewLabel, { color: colors.secondaryText }]}>Bài đã hoàn thành</Text>
                     </View>
                     <View style={[styles.overviewCard, { backgroundColor: colors.cardBg }]}>
                         <Ionicons name="flame-outline" size={24} color="#F59E0B" />
-                        <Text style={[styles.overviewValue, { color: '#F59E0B' }]}>7</Text>
+                        <Text style={[styles.overviewValue, { color: '#F59E0B' }]}>{currentStreak}</Text>
                         <Text style={[styles.overviewLabel, { color: colors.secondaryText }]}>Ngày liên tiếp</Text>
                     </View>
                 </View>
 
-                {/* Weekly Chart */}
+                {/* Learning Summary */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Thời gian học trong tuần</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Tổng quan học tập</Text>
                     <View style={[styles.chartContainer, { backgroundColor: colors.cardBg }]}>
-                        <View style={styles.chart}>
-                            {weekData.map((item, index) => (
-                                <View key={index} style={styles.barContainer}>
-                                    <View style={[styles.bar, { height: item.height }]} />
-                                    <Text style={[styles.barLabel, { color: colors.mutedText }]}>{item.day}</Text>
-                                </View>
-                            ))}
+                        <View style={styles.summaryRow}>
+                            <Text style={[styles.summaryLabel, { color: colors.secondaryText }]}>Tổng bài học</Text>
+                            <Text style={[styles.summaryValue, { color: colors.text }]}>{totalLessons}</Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                            <Text style={[styles.summaryLabel, { color: colors.secondaryText }]}>Tổng XP</Text>
+                            <Text style={[styles.summaryValue, { color: colors.text }]}>{totalXP}</Text>
+                        </View>
+                        <View style={[styles.progressBarBg, { backgroundColor: colors.border, marginTop: 12 }]}>
+                            <View
+                                style={[
+                                    styles.progressBar,
+                                    { width: `${progressPercent}%`, backgroundColor: colors.tint },
+                                ]}
+                            />
                         </View>
                     </View>
                 </View>
 
-                {/* Subject Progress */}
+                {/* Lesson Status */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Tiến độ theo môn</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Trạng thái bài học</Text>
 
-                    {[
-                        { subject: 'Toán học', progress: 75, color: '#3B82F6' },
-                        { subject: 'Tiếng Anh', progress: 60, color: '#8B5CF6' },
-                        { subject: 'Vật lý', progress: 45, color: '#F59E0B' },
-                        { subject: 'Hóa học', progress: 30, color: '#10B981' },
-                    ].map((item, index) => (
+                    {lessonStatusData.map((item, index) => (
                         <View key={index} style={[styles.progressItem, { backgroundColor: colors.cardBg }]}>
                             <View style={styles.progressHeader}>
-                                <Text style={[styles.progressSubject, { color: colors.text }]}>{item.subject}</Text>
-                                <Text style={[styles.progressPercent, { color: item.color }]}>{item.progress}%</Text>
+                                <Text style={[styles.progressSubject, { color: colors.text }]}>{item.label}</Text>
+                                <Text style={[styles.progressPercent, { color: item.color }]}>{item.value}</Text>
                             </View>
                             <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
                                 <View
                                     style={[
                                         styles.progressBar,
-                                        { width: `${item.progress}%`, backgroundColor: item.color },
+                                        {
+                                            width: `${totalLessons > 0 ? Math.round((item.value / totalLessons) * 100) : 0}%`,
+                                            backgroundColor: item.color,
+                                        },
                                     ]}
                                 />
                             </View>
@@ -92,8 +189,41 @@ export default function StatsScreen() {
                     ))}
                 </View>
 
+                {/* Daily Limits & Achievements */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Giới hạn ngày & Thành tựu</Text>
+                    <View style={[styles.progressItem, { backgroundColor: colors.cardBg }]}>
+                        <Text style={[styles.progressSubject, { color: colors.text }]}>
+                            Giới hạn: {lessonLimit} bài học / {examLimit} lượt thi mỗi ngày
+                        </Text>
+                        <Text style={[styles.overviewLabel, { color: colors.secondaryText, marginTop: 8 }]}>
+                            Theo gói hiện tại của bạn.
+                        </Text>
+                    </View>
+                    {(dashboardStats?.achievements ?? []).map((item, index) => (
+                        <View key={`${item.name}-${index}`} style={[styles.progressItem, { backgroundColor: colors.cardBg }]}>
+                            <View style={styles.progressHeader}>
+                                <Text style={[styles.progressSubject, { color: colors.text }]}>{item.name || 'Achievement'}</Text>
+                                <Text style={[styles.progressPercent, { color: item.earned ? '#10B981' : colors.mutedText }]}>
+                                    {item.earned ? 'Đã đạt' : 'Chưa đạt'}
+                                </Text>
+                            </View>
+                            <Text style={[styles.overviewLabel, { color: colors.secondaryText }]}>
+                                {item.description || ''}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
+
+                {errorMessage ? (
+                    <View style={styles.section}>
+                        <Text style={{ color: '#EF4444', fontSize: 13 }}>{errorMessage}</Text>
+                    </View>
+                ) : null}
+
                 <View style={{ height: 100 }} />
-            </ScrollView>
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 }
@@ -109,6 +239,15 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 24,
         fontWeight: '700',
+    },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+    },
+    loadingText: {
+        fontSize: 14,
     },
     overviewContainer: {
         flexDirection: 'row',
@@ -158,23 +297,17 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
     },
-    chart: {
+    summaryRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        height: 100,
-    },
-    barContainer: {
         alignItems: 'center',
     },
-    bar: {
-        width: 24,
-        backgroundColor: '#3B82F6',
-        borderRadius: 4,
-        marginBottom: 8,
+    summaryLabel: {
+        fontSize: 13,
     },
-    barLabel: {
-        fontSize: 12,
+    summaryValue: {
+        fontSize: 14,
+        fontWeight: '700',
     },
     progressItem: {
         borderRadius: 12,

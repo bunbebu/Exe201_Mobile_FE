@@ -15,6 +15,7 @@ import {
 
 import { API_BASE_URL } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
+import { useColors } from '@/hooks/use-colors';
 
 interface LessonStatus {
   id: string;
@@ -41,20 +42,21 @@ interface HtmlVideoProps {
 
 // Custom Video component: dùng thẻ <video> nguyên bản trên web, placeholder trên mobile
 const HtmlVideo: React.FC<HtmlVideoProps> = ({ src }) => {
+  const colors = useColors();
   if (!src) {
     return (
-      <View style={styles.videoPlaceholder}>
-        <Ionicons name="play-circle" size={48} color="#3B82F6" />
-        <Text style={styles.videoText}>Video bài học đang được cập nhật</Text>
+      <View style={[styles.videoPlaceholder, { backgroundColor: colors.inputBg }]}>
+        <Ionicons name="play-circle" size={48} color={colors.tint} />
+        <Text style={[styles.videoText, { color: colors.secondaryText }]}>Video bài học đang được cập nhật</Text>
       </View>
     );
   }
 
   if (Platform.OS !== 'web') {
     return (
-      <View style={styles.videoPlaceholder}>
-        <Ionicons name="play-circle" size={48} color="#3B82F6" />
-        <Text style={styles.videoText}>Video hiện chỉ hỗ trợ xem trên web.</Text>
+      <View style={[styles.videoPlaceholder, { backgroundColor: colors.inputBg }]}>
+        <Ionicons name="play-circle" size={48} color={colors.tint} />
+        <Text style={[styles.videoText, { color: colors.secondaryText }]}>Video hiện chỉ hỗ trợ xem trên web.</Text>
       </View>
     );
   }
@@ -71,13 +73,14 @@ const HtmlVideo: React.FC<HtmlVideoProps> = ({ src }) => {
         overflow: 'hidden',
         width: '100%',
         borderRadius: 12,
-        backgroundColor: '#000',
+        backgroundColor: colors.inputBg,
       }}
     />
   );
 };
 
 export default function LessonScreen() {
+  const colors = useColors();
   const params = useLocalSearchParams();
   const lessonId = params.id as string | undefined;
   const initialTitle = (params.title as string) || 'Bài học';
@@ -243,45 +246,48 @@ export default function LessonScreen() {
 
   if (isLoading || !status) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Đang tải bài học...</Text>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+        <Text style={[styles.loadingText, { color: colors.secondaryText }]}>Đang tải bài học...</Text>
       </SafeAreaView>
     );
   }
 
   if (status.isLocked) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <Ionicons name="lock-closed" size={40} color="#6B7280" />
-        <Text style={styles.lockedText}>Bài học này đang bị khóa. Hãy hoàn thành bài trước đó.</Text>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <Ionicons name="lock-closed" size={40} color={colors.mutedText} />
+        <Text style={[styles.lockedText, { color: colors.secondaryText }]}>Bài học này đang bị khóa. Hãy hoàn thành bài trước đó.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#111827" />
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
             {status.title}
           </Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Video section */}
-        <View style={styles.videoCard}>
+        <View style={[styles.videoCard, { backgroundColor: colors.cardBg }]}>
           <HtmlVideo src={lessonDetail?.videoUrl || ''} />
 
-          <Text style={styles.lessonDescription}>
+          <Text style={[styles.lessonDescription, { color: colors.secondaryText }]}>
             {lessonDetail?.description || status.description}
           </Text>
           <TouchableOpacity
-            style={[styles.videoButton, status.videoCompleted && styles.videoButtonCompleted]}
+            style={[
+              styles.videoButton,
+              { backgroundColor: status.videoCompleted ? '#10B981' : colors.tint },
+            ]}
             onPress={handleMarkVideoCompleted}
             disabled={isMarkingVideo}
           >
@@ -296,14 +302,21 @@ export default function LessonScreen() {
         </View>
 
         {/* Quiz section */}
-        <View style={styles.quizCard}>
+        <View style={[styles.quizCard, { backgroundColor: colors.cardBg }]}>
           <View style={styles.quizHeader}>
-            <Text style={styles.quizTitle}>Quiz kiểm tra nhanh</Text>
-            {status.quizCompleted && <Text style={styles.quizBadge}>Đã hoàn thành</Text>}
+            <Text style={[styles.quizTitle, { color: colors.text }]}>Quiz kiểm tra nhanh</Text>
+            {status.quizCompleted && (
+              <Text style={[styles.quizBadge, { color: '#10B981', backgroundColor: colors.qaGreenBg }]}>
+                Đã hoàn thành
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
-            style={[styles.loadQuizButton, !status.videoCompleted && styles.loadQuizButtonDisabled]}
+            style={[
+              styles.loadQuizButton,
+              { backgroundColor: status.videoCompleted ? colors.tint : colors.mutedText },
+            ]}
             onPress={handleLoadQuiz}
             disabled={!status.videoCompleted}
           >
