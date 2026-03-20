@@ -61,6 +61,7 @@ export default function PaywallScreen() {
   const { tokens } = useAuth();
   const params = useLocalSearchParams();
   const source = (params.source as string) || 'feature';
+  const mode = (params.mode as string) || 'upgrade';
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -201,12 +202,16 @@ export default function PaywallScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>Nâng cấp Premium</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {mode === 'renewal' ? 'Gia hạn Pro' : 'Nâng cấp Premium'}
+          </Text>
           <View style={styles.closeBtn} />
         </View>
 
         <Text style={[styles.subTitle, { color: colors.secondaryText }]}>
-          Mở khóa tính năng cao cấp ({source}).
+          {mode === 'renewal'
+            ? `Goi Pro da het han. Vui long gia han de tiep tuc (${source}).`
+            : `Mở khóa tính năng cao cấp (${source}).`}
         </Text>
 
         {isLoading ? (

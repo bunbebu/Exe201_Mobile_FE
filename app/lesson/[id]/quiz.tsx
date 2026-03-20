@@ -14,6 +14,7 @@ import {
 
 import { API_BASE_URL } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
+import { parsePaymentGuardError } from '@/lib/payment-guard';
 
 interface QuizQuestion {
   id: string;
@@ -143,6 +144,16 @@ export default function QuizScreen() {
       );
 
       if (!res.ok) {
+        const paymentGuard = await parsePaymentGuardError(res);
+        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+          const mode = paymentGuard?.requiresRenewal ? 'renewal' : 'upgrade';
+          Alert.alert(
+            paymentGuard?.requiresRenewal ? 'Can gia han Pro' : 'Can nang cap Pro',
+            paymentGuard?.message || 'Vui long nang cap de tiep tuc luyen tap.'
+          );
+          router.push({ pathname: '/paywall', params: { source: 'lesson-quiz', mode } } as any);
+          return;
+        }
         const text = await res.text().catch(() => '');
         throw new Error(text || 'Không thể nộp bài.');
       }

@@ -15,6 +15,7 @@ import {
 import { API_BASE_URL } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
+import { parsePaymentGuardError } from '@/lib/payment-guard';
 
 interface Lesson {
   id: string;
@@ -76,6 +77,16 @@ export default function CourseCurriculumScreen() {
         );
 
         if (!res.ok) {
+          const paymentGuard = await parsePaymentGuardError(res);
+          if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+            const mode = paymentGuard?.requiresRenewal ? 'renewal' : 'upgrade';
+            Alert.alert(
+              paymentGuard?.requiresRenewal ? 'Can gia han Pro' : 'Can nang cap Pro',
+              paymentGuard?.message || 'Vui long nang cap goi de tiep tuc hoc.'
+            );
+            router.push({ pathname: '/paywall', params: { source: 'curriculum', mode } } as any);
+            return;
+          }
           const text = await res.text().catch(() => '');
           throw new Error(text || 'Không thể tải curriculum của khoá học.');
         }

@@ -16,6 +16,7 @@ import {
 import { API_BASE_URL } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
+import { parsePaymentGuardError } from '@/lib/payment-guard';
 
 interface LessonStatus {
   id: string;
@@ -122,6 +123,16 @@ export default function LessonScreen() {
         );
 
         if (!res.ok) {
+        const paymentGuard = await parsePaymentGuardError(res);
+        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+          const mode = paymentGuard?.requiresRenewal ? 'renewal' : 'upgrade';
+          Alert.alert(
+            paymentGuard?.requiresRenewal ? 'Can gia han Pro' : 'Can nang cap Pro',
+            paymentGuard?.message || 'Vui long nang cap de tiep tuc hoc bai.'
+          );
+          router.replace({ pathname: '/paywall', params: { source: 'lesson-status', mode } } as any);
+          return;
+        }
           const text = await res.text().catch(() => '');
           throw new Error(text || 'Không thể tải trạng thái bài học.');
         }
@@ -208,6 +219,16 @@ export default function LessonScreen() {
       );
 
       if (!res.ok) {
+        const paymentGuard = await parsePaymentGuardError(res);
+        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+          const mode = paymentGuard?.requiresRenewal ? 'renewal' : 'upgrade';
+          Alert.alert(
+            paymentGuard?.requiresRenewal ? 'Can gia han Pro' : 'Can nang cap Pro',
+            paymentGuard?.message || 'Vui long nang cap goi de tiep tuc.'
+          );
+          router.push({ pathname: '/paywall', params: { source: 'lesson-video', mode } } as any);
+          return;
+        }
         const text = await res.text().catch(() => '');
         throw new Error(text || 'Không thể đánh dấu đã xem xong video.');
       }

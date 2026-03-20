@@ -16,6 +16,7 @@ import {
 
 import { API_BASE_URL } from "@/config/api";
 import { useAuth } from "@/context/AuthContext";
+import { parsePaymentGuardError } from "@/lib/payment-guard";
 
 type ExamQuestionType = "MULTIPLE_CHOICE" | string;
 
@@ -140,6 +141,16 @@ export default function ExamStartScreen() {
         });
 
         if (!res.ok) {
+        const paymentGuard = await parsePaymentGuardError(res);
+        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+          const mode = paymentGuard?.requiresRenewal ? "renewal" : "upgrade";
+          Alert.alert(
+            paymentGuard?.requiresRenewal ? "Can gia han Pro" : "Can nang cap Pro",
+            paymentGuard?.message || "Vui long nang cap de mo khoa thi thu."
+          );
+          router.replace({ pathname: "/paywall", params: { source: "exam-start", mode } } as any);
+          return;
+        }
           const text = await res.text().catch(() => "");
           throw new Error(text || "Không thể tải đề thi thử.");
         }
@@ -221,22 +232,19 @@ export default function ExamStartScreen() {
     const perQuestionTime = questions.length > 0 ? Math.floor(totalTimeSpentMs / questions.length) : 0;
     const currentSelected = selectedRef.current;
 
-    const answers: ExamSubmitAnswer[] = questions.map((q) => {
-      const selectedAnswer = currentSelected[q.id];
-      if (!selectedAnswer) {
-        // Backend expects selectedAnswer; for unanswered questions we submit empty string.
+    // Some backends reject empty selectedAnswer (validation error on answers.*.selectedAnswer).
+    // Submit only answered questions; unanswered ones are treated as not attempted.
+    const answers: ExamSubmitAnswer[] = questions
+      .map((q) => {
+        const selectedAnswer = currentSelected[q.id];
+        if (!selectedAnswer) return null;
         return {
           questionId: q.id,
-          selectedAnswer: "",
+          selectedAnswer,
           timeSpentMs: perQuestionTime,
         };
-      }
-      return {
-        questionId: q.id,
-        selectedAnswer,
-        timeSpentMs: perQuestionTime,
-      };
-    });
+      })
+      .filter((item): item is ExamSubmitAnswer => item !== null);
 
     return {
       answers,
@@ -269,6 +277,16 @@ export default function ExamStartScreen() {
       );
 
       if (!res.ok) {
+        const paymentGuard = await parsePaymentGuardError(res);
+        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+          const mode = paymentGuard?.requiresRenewal ? "renewal" : "upgrade";
+          Alert.alert(
+            paymentGuard?.requiresRenewal ? "Can gia han Pro" : "Can nang cap Pro",
+            paymentGuard?.message || "Vui long nang cap goi de tiep tuc thi thu."
+          );
+          router.push({ pathname: "/paywall", params: { source: "exam-submit", mode } } as any);
+          return;
+        }
         const text = await res.text().catch(() => "");
         throw new Error(text || "Không thể nộp bài.");
       }
