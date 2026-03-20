@@ -577,7 +577,10 @@ export default function HomeScreen() {
 
           <View style={styles.suggestionsContainer}>
             {/* Tip Card */}
-            <TouchableOpacity style={[styles.suggestionCard, { backgroundColor: colors.tipCardBg }]}>
+            <TouchableOpacity
+              style={[styles.suggestionCard, { backgroundColor: colors.tipCardBg }]}
+              onPress={() => router.push('/tips/memory' as any)}
+            >
               <View style={[styles.suggestionIconContainer, { backgroundColor: colors.surface }]}>
                 <Ionicons name="bulb" size={24} color="#F59E0B" />
               </View>

@@ -111,7 +111,25 @@ export default function ExamsListScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Tất cả bài kiểm tra</Text>
-        <View style={styles.headerBtn} />
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => router.push({ pathname: '/paywall', params: { source: 'exams-advanced' } } as any)}
+        >
+          <Ionicons name="diamond-outline" size={20} color={colors.tint} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.proBanner, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
+        <Text style={[styles.proBannerTitle, { color: colors.text }]}>Thi thu nang cao (Pro)</Text>
+        <Text style={[styles.proBannerDesc, { color: colors.secondaryText }]}>
+          Free: 2 luot/ngay. Pro: khong gioi han va uu tien thong ke.
+        </Text>
+        <TouchableOpacity
+          style={[styles.proBannerBtn, { backgroundColor: colors.tint }]}
+          onPress={() => router.push({ pathname: '/paywall', params: { source: 'exams-banner' } } as any)}
+        >
+          <Text style={styles.proBannerBtnText}>Mo khoa ngay</Text>
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -205,6 +223,32 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 24,
+  },
+  proBanner: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  proBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  proBannerDesc: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  proBannerBtn: {
+    marginTop: 8,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  proBannerBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   card: {
     flexDirection: 'row',

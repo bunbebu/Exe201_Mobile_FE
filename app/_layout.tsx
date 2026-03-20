@@ -52,6 +52,10 @@ function InnerLayout() {
         <Stack>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="paywall"
+            options={{ headerShown: false, presentation: "modal" }}
+          />
           <Stack.Screen name="exams/index" options={{ headerShown: false }} />
           <Stack.Screen
             name="course/[id]"
@@ -59,6 +63,10 @@ function InnerLayout() {
           />
           <Stack.Screen
             name="subject/[id]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="tips/memory"
             options={{ headerShown: false }}
           />
           <Stack.Screen

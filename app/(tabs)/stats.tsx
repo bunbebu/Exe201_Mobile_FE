@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -43,6 +45,7 @@ interface DashboardStatsResponse {
         description?: string;
         earned?: boolean;
     }>;
+    weeklyProgress?: unknown;
 }
 
 export default function StatsScreen() {
@@ -98,6 +101,7 @@ export default function StatsScreen() {
     const lessonLimit = dashboard?.plan?.dailyLimits?.lessons?.limit ?? 0;
     const examLimit = dashboard?.plan?.dailyLimits?.exams?.limit ?? 0;
     const lessonStats = dashboardStats?.lessonStats;
+    const isWeeklyProgressLocked = dashboardStats?.weeklyProgress == null;
 
     const lessonStatusData = useMemo(
         () => [
@@ -214,6 +218,25 @@ export default function StatsScreen() {
                         </View>
                     ))}
                 </View>
+
+                {isWeeklyProgressLocked ? (
+                    <View style={styles.section}>
+                        <View style={[styles.progressItem, { backgroundColor: colors.cardBg }]}>
+                            <Text style={[styles.progressSubject, { color: colors.text }]}>
+                                Nâng cấp tính năng Premium
+                            </Text>
+                            <Text style={[styles.overviewLabel, { color: colors.secondaryText, marginTop: 8 }]}>
+                                Nâng cấp để mở khóa biểu đồ thống kê chi tiết và tắt quảng cáo.
+                            </Text>
+                            <TouchableOpacity
+                                style={[styles.upgradeBtn, { backgroundColor: colors.tint }]}
+                                onPress={() => router.push({ pathname: '/paywall', params: { source: 'stats' } } as any)}
+                            >
+                                <Text style={styles.upgradeBtnText}>Nâng cấp Premium</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : null}
 
                 {errorMessage ? (
                     <View style={styles.section}>
@@ -334,5 +357,16 @@ const styles = StyleSheet.create({
     progressBar: {
         height: '100%',
         borderRadius: 4,
+    },
+    upgradeBtn: {
+        marginTop: 12,
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    upgradeBtnText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
     },
 });
