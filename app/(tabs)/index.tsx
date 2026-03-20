@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,28 +19,12 @@ import { API_BASE_URL } from '@/config/api';
 import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const isTablet = SCREEN_WIDTH >= 768;
-const isWeb = Platform.OS === 'web';
-
 interface QuickActionProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   color: string;
   bgColor: string;
   onPress?: () => void;
-}
-
-function QuickAction({ icon, label, color, bgColor, onPress }: QuickActionProps) {
-  const colors = useColors();
-  return (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress}>
-      <View style={[styles.quickActionIcon, { backgroundColor: bgColor }]}>
-        <Ionicons name={icon} size={24} color={color} />
-      </View>
-      <Text style={[styles.quickActionLabel, { color: colors.secondaryText }]}>{label}</Text>
-    </TouchableOpacity>
-  );
 }
 
 interface Lesson {
@@ -77,6 +61,8 @@ interface DashboardData {
 }
 
 export default function HomeScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+  const styles = useMemo(() => createHomeStyles(windowWidth), [windowWidth]);
   const colors = useColors();
   const { tokens, user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -452,7 +438,7 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View style={styles.quickActionsContainer}>
           {quickActions.map((action, index) => (
-            <QuickAction key={index} {...action} />
+            <QuickAction key={index} {...action} layout={styles} />
           ))}
         </View>
 
@@ -621,18 +607,25 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createHomeStyles(screenWidth: number) {
+  const isWeb = Platform.OS === 'web';
+  const isTablet = screenWidth >= 768;
+  const isCompactWeb = isWeb && screenWidth < 600;
+  const isLargeWeb = isWeb && screenWidth >= 1024;
+  const edgePad = isTablet ? 32 : isWeb ? Math.min(screenWidth * 0.05, 40) : 20;
+
+  return StyleSheet.create({
   container: {
     flex: 1,
     maxWidth: isWeb ? 1200 : '100%',
     alignSelf: isWeb ? 'center' : 'stretch',
-    width: isWeb ? '100%' : SCREEN_WIDTH,
+    width: isWeb ? '100%' : screenWidth,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    paddingHorizontal: edgePad,
     paddingVertical: isTablet ? 20 : 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -671,7 +664,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dailyProgressContainer: {
-    marginHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    marginHorizontal: edgePad,
     marginTop: 12,
     marginBottom: 8,
     padding: isTablet ? 16 : 12,
@@ -711,7 +704,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressCard: {
-    margin: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    margin: edgePad,
     padding: isTablet ? 28 : isWeb ? 24 : 20,
     backgroundColor: '#3B82F6',
     borderRadius: isTablet ? 24 : 20,
@@ -789,31 +782,34 @@ const styles = StyleSheet.create({
   },
   quickActionsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: edgePad,
     marginBottom: isTablet ? 32 : 24,
-    gap: isTablet ? 16 : isWeb ? 12 : 0,
-    flexWrap: isWeb && SCREEN_WIDTH < 600 ? 'wrap' : 'nowrap',
+    gap: isTablet ? 16 : isWeb ? 12 : 8,
+    flexWrap: isCompactWeb ? 'wrap' : 'nowrap',
   },
   quickAction: {
-    flex: isWeb && SCREEN_WIDTH < 600 ? 0 : 1,
+    ...(isCompactWeb
+      ? { width: '48%', maxWidth: '48%', flexGrow: 0, flexShrink: 0 }
+      : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
     alignItems: 'center',
-    ...(isWeb && SCREEN_WIDTH < 600 ? { width: '48%' } : {}),
-    marginBottom: isWeb && SCREEN_WIDTH < 600 ? 12 : 0,
+    marginBottom: isCompactWeb ? 12 : 0,
   },
   quickActionIcon: {
-    width: isTablet ? 64 : isWeb && SCREEN_WIDTH >= 1024 ? 64 : 56,
-    height: isTablet ? 64 : isWeb && SCREEN_WIDTH >= 1024 ? 64 : 56,
+    width: isTablet ? 64 : isLargeWeb ? 64 : 56,
+    height: isTablet ? 64 : isLargeWeb ? 64 : 56,
     borderRadius: isTablet ? 20 : 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: isTablet ? 12 : 8,
   },
   quickActionLabel: {
-    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
+    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
     fontWeight: '500',
   },
   section: {
-    paddingHorizontal: isTablet ? 32 : isWeb ? Math.min(SCREEN_WIDTH * 0.05, 40) : 20,
+    paddingHorizontal: edgePad,
     marginBottom: isTablet ? 32 : 24,
     maxWidth: isWeb ? 800 : '100%',
     alignSelf: isWeb ? 'center' : 'stretch',
@@ -825,18 +821,18 @@ const styles = StyleSheet.create({
     marginBottom: isTablet ? 20 : 16,
   },
   sectionTitle: {
-    fontSize: isTablet ? 22 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 18,
+    fontSize: isTablet ? 22 : isLargeWeb ? 20 : 18,
     fontWeight: '700',
   },
   seeAllText: {
-    fontSize: isTablet ? 16 : isWeb && SCREEN_WIDTH >= 1024 ? 16 : 14,
+    fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
     color: '#3B82F6',
     fontWeight: '500',
   },
   lessonCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: isTablet ? 20 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 16,
+    padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
     borderRadius: isTablet ? 20 : 16,
     marginBottom: isTablet ? 16 : 12,
     shadowColor: '#000',
@@ -846,8 +842,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   lessonIconContainer: {
-    width: isTablet ? 56 : isWeb && SCREEN_WIDTH >= 1024 ? 56 : 48,
-    height: isTablet ? 56 : isWeb && SCREEN_WIDTH >= 1024 ? 56 : 48,
+    width: isTablet ? 56 : isLargeWeb ? 56 : 48,
+    height: isTablet ? 56 : isLargeWeb ? 56 : 48,
     borderRadius: isTablet ? 16 : 12,
     backgroundColor: '#D1FAE5',
     alignItems: 'center',
@@ -860,17 +856,17 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   lessonChapter: {
-    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
+    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
     marginBottom: 4,
     fontWeight: '500',
   },
   lessonTitle: {
-    fontSize: isTablet ? 18 : isWeb && SCREEN_WIDTH >= 1024 ? 18 : 16,
+    fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
     fontWeight: '600',
     marginBottom: 2,
   },
   lessonSubtitle: {
-    fontSize: isTablet ? 16 : isWeb && SCREEN_WIDTH >= 1024 ? 16 : 14,
+    fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
     marginBottom: 6,
     lineHeight: isTablet ? 22 : 20,
   },
@@ -885,11 +881,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   lessonMetaText: {
-    fontSize: isTablet ? 14 : isWeb && SCREEN_WIDTH >= 1024 ? 14 : 12,
+    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
   },
   playButton: {
-    width: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
-    height: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    width: isTablet ? 48 : isLargeWeb ? 48 : 40,
+    height: isTablet ? 48 : isLargeWeb ? 48 : 40,
     borderRadius: isTablet ? 24 : 20,
     backgroundColor: '#3B82F6',
     alignItems: 'center',
@@ -897,31 +893,34 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   suggestionsContainer: {
-    flexDirection: isWeb && SCREEN_WIDTH < 600 ? 'column' : 'row',
+    flexDirection: isCompactWeb ? 'column' : 'row',
+    width: '100%',
+    alignSelf: 'stretch',
     gap: isTablet ? 16 : 12,
     marginTop: 16,
   },
   suggestionCard: {
-    flex: isWeb && SCREEN_WIDTH < 600 ? 0 : 1,
-    padding: isTablet ? 20 : isWeb && SCREEN_WIDTH >= 1024 ? 20 : 16,
+    ...(isCompactWeb
+      ? { width: '100%', flexGrow: 0, flexShrink: 0 }
+      : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
+    padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
     borderRadius: isTablet ? 20 : 16,
-    ...(isWeb && SCREEN_WIDTH < 600 ? { width: '100%' } : {}),
   },
   suggestionIconContainer: {
-    width: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
-    height: isTablet ? 48 : isWeb && SCREEN_WIDTH >= 1024 ? 48 : 40,
+    width: isTablet ? 48 : isLargeWeb ? 48 : 40,
+    height: isTablet ? 48 : isLargeWeb ? 48 : 40,
     borderRadius: isTablet ? 16 : 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: isTablet ? 16 : 12,
   },
   suggestionTitle: {
-    fontSize: isTablet ? 18 : isWeb && SCREEN_WIDTH >= 1024 ? 18 : 16,
+    fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   suggestionDescription: {
-    fontSize: isTablet ? 15 : isWeb && SCREEN_WIDTH >= 1024 ? 15 : 13,
+    fontSize: isTablet ? 15 : isLargeWeb ? 15 : 13,
     lineHeight: isTablet ? 22 : 18,
   },
   loadingContainer: {
@@ -942,4 +941,26 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: isTablet ? 16 : 14,
   },
-});
+  });
+}
+
+function QuickAction({
+  icon,
+  label,
+  color,
+  bgColor,
+  onPress,
+  layout,
+}: QuickActionProps & { layout: ReturnType<typeof createHomeStyles> }) {
+  const colors = useColors();
+  return (
+    <TouchableOpacity style={layout.quickAction} onPress={onPress}>
+      <View style={[layout.quickActionIcon, { backgroundColor: bgColor }]}>
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+      <Text style={[layout.quickActionLabel, { color: colors.secondaryText }]} numberOfLines={2}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}

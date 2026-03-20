@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Image,
     ScrollView,
     StyleSheet,
@@ -9,7 +10,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -216,7 +216,7 @@ export default function ProfileScreen() {
                     <View style={[styles.menuCard, { backgroundColor: colors.cardBg }]}>
                         <MenuItem icon="person-outline" label="Thông tin cá nhân" />
                         <MenuItem icon="school-outline" label="Lớp học của tôi" />
-                        <MenuItem icon="bookmark-outline" label="Đã lưu" />
+                        {/* <MenuItem icon="bookmark-outline" label="Đã lưu" /> */}
                         <MenuItem icon="time-outline" label="Lịch sử học tập" />
                         <MenuItem
                             icon="link-outline"
@@ -247,8 +247,8 @@ export default function ProfileScreen() {
                                 />
                             }
                         />
-                        <MenuItem icon="language-outline" label="Ngôn ngữ" />
-                        <MenuItem icon="help-circle-outline" label="Trợ giúp" />
+                        {/* <MenuItem icon="language-outline" label="Ngôn ngữ" /> */}
+                        {/* <MenuItem icon="help-circle-outline" label="Trợ giúp" /> */}
                     </View>
                 </View>
 
