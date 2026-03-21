@@ -100,6 +100,7 @@ export default function ExamStartScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const [exam, setExam] = useState<ExamStartResponse | null>(null);
   const [selected, setSelected] = useState<Record<string, string | null>>({});
@@ -125,8 +126,8 @@ export default function ExamStartScreen() {
 
   useEffect(() => {
     if (!examId || !tokens?.accessToken) {
-      Alert.alert("Lỗi", "Thiếu thông tin phiên đăng nhập hoặc exam.");
-      router.back();
+      setBootstrapError("Thiếu thông tin phiên đăng nhập hoặc exam.");
+      setIsLoading(false);
       return;
     }
 
@@ -180,8 +181,7 @@ export default function ExamStartScreen() {
         setStep("exam");
       } catch (e: any) {
         console.error("[EXAM] load error:", e);
-        Alert.alert("Lỗi", e?.message ?? "Không thể tải đề thi thử.");
-        router.back();
+        setBootstrapError(e?.message ?? "Không thể tải đề thi thử.");
       } finally {
         setIsLoading(false);
       }
@@ -352,7 +352,7 @@ export default function ExamStartScreen() {
     return (
       <SafeAreaView style={styles.loadingScreen}>
         <Ionicons name="alert-circle-outline" size={48} color="#6B7280" />
-        <Text style={styles.loadingText}>Không tìm thấy đề thi.</Text>
+        <Text style={styles.loadingText}>{bootstrapError || "Không tìm thấy đề thi."}</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Quay lại</Text>
         </TouchableOpacity>
