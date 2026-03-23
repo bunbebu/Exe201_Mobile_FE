@@ -840,7 +840,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    // Defensive fallback:
+    // In some startup races (especially with Expo Router hydration),
+    // a route can render before provider mount. Return a safe loading state
+    // instead of hard-crashing the whole app.
+    return {
+      user: null,
+      tokens: null,
+      isAuthenticated: false,
+      isLoading: true,
+      onboardingCompleted: false,
+      onboardingGoals: [],
+      onboardingGrade: null,
+      loginWithEmail: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      loginWithGoogle: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      loginWithFacebook: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      requestPasswordResetOtp: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      verifyPasswordResetOtp: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      resetPasswordWithToken: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      changePassword: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      hydrateFromOAuthLogin: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      completeOAuthProfile: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      logout: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+      setOnboardingGoals: () => undefined,
+      setOnboardingGrade: () => undefined,
+      markOnboardingCompleted: async () => {
+        throw new Error("Auth provider not ready yet.");
+      },
+    };
   }
   return ctx;
 }
