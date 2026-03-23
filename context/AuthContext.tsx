@@ -104,7 +104,7 @@ interface AuthContextValue extends AuthState {
   markOnboardingCompleted: () => Promise<void>;
 }
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   TOKENS: "@edutech/tokens",
   USER: "@edutech/user",
   ONBOARDING_COMPLETED: "@edutech/onboardingCompleted",
@@ -613,6 +613,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const loginWithFacebook = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
+      if (Platform.OS === "web") {
+        const callbackUrl = `${window.location.origin}/oauth/facebook-callback-web`;
+        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/facebook/login?redirect_uri=${encodeURIComponent(callbackUrl)}`;
+        window.location.href = loginUrl;
+        return;
+      }
+
       // Get OAuth URL from backend
       const redirectUri = Linking.createURL("oauth-callback", { scheme: APP_SCHEME });
       const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/facebook/login?redirect_uri=${encodeURIComponent(redirectUri)}`;
