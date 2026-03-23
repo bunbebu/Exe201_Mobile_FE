@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 export type NotificationDeepLinkData = {
@@ -52,14 +53,21 @@ export async function requestPushPermissions(): Promise<{
 export async function getExpoPushTokenSafe(): Promise<string | null> {
   // Web doesn't support native push this way.
   if (Platform.OS === "web") return null;
+  // SDK 53+: Expo Go não suporta remote push token.
+  // Só funciona em development build / app nativo.
+  if (Constants.appOwnership === "expo") return null;
 
   const { status } = await requestPushPermissions();
   if (status !== "granted") return null;
 
   await ensureAndroidNotificationChannel();
 
-  const token = await Notifications.getExpoPushTokenAsync();
-  return token.data ?? null;
+  try {
+    const token = await Notifications.getExpoPushTokenAsync();
+    return token.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function scheduleLocalReminder(payload: {
