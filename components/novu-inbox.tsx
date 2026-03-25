@@ -1,6 +1,4 @@
 import React from 'react';
-
-import { Inbox } from '@novu/react';
 import { router } from 'expo-router';
 import { Platform, View } from 'react-native';
 
@@ -19,19 +17,14 @@ export function NovuInbox({
   subscriberHash,
   backendUrl,
 }: Props) {
+  // On mobile/native we intentionally do not import `@novu/react`.
+  // The Novu Inbox UI depends on web/Solid packages that are not compatible
+  // with the React Native bundler.
+  // The real implementation lives in `novu-inbox.web.tsx`.
   if (Platform.OS !== 'web') return null;
 
-  return (
-    <View style={{ width: '100%' }}>
-      <Inbox
-        applicationIdentifier={applicationIdentifier}
-        subscriber={subscriberId}
-        subscriberHash={subscriberHash ?? undefined}
-        backendUrl={backendUrl}
-        socketUrl={socketUrl}
-        routerPush={(path: string) => router.push(path as any)}
-      />
-    </View>
-  );
+  // If someone renders this file on web (shouldn't happen due to platform extensions),
+  // fail gracefully.
+  return null;
 }
 

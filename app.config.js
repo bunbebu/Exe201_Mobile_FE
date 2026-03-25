@@ -12,6 +12,9 @@ export default {
       supportsTablet: true,
     },
     android: {
+      // Expo yêu cầu bắt buộc phải có android.package để build/run Android.
+      // Bạn có thể đổi theo package name mong muốn miễn là consistent với cấu hình deep link.
+      package: "com.mobileapp.exe201",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/images/android-icon-foreground.png",
