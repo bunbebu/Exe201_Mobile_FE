@@ -79,6 +79,10 @@ function InnerLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="materials/index"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="lesson/[id]"
             options={{ headerShown: false }}
           />

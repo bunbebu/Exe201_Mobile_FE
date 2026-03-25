@@ -87,7 +87,13 @@ export default function HomeScreen() {
       bgColor: colors.qaGreenBg,
       onPress: () => router.push('/exams' as any),
     },
-    { icon: 'library-outline', label: 'Thư viện', color: '#8B5CF6', bgColor: colors.qaPurpleBg },
+    {
+      icon: 'library-outline',
+      label: 'Thư viện',
+      color: '#8B5CF6',
+      bgColor: colors.qaPurpleBg,
+      onPress: () => router.push('/materials' as any),
+    },
   ];
 
   // Fetch dashboard header data
