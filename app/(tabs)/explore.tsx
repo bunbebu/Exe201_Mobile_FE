@@ -193,7 +193,19 @@ export default function ExploreScreen() {
           </View>
 
           {popularCourses.map((course) => (
-            <TouchableOpacity key={course.id} style={[styles.courseCard, { backgroundColor: colors.cardBg }]}>
+            <TouchableOpacity
+              key={course.id}
+              style={[styles.courseCard, { backgroundColor: colors.cardBg }]}
+              onPress={() =>
+                router.push({
+                  pathname: '/course/[id]',
+                  params: {
+                    id: course.id,
+                    title: course.title,
+                  },
+                } as any)
+              }
+            >
               <View style={[styles.courseImage, { backgroundColor: colors.background }]}>
                 {course.thumbnailUrl?.url ? (
                   <Image source={{ uri: course.thumbnailUrl.url }} style={styles.courseThumb} resizeMode="cover" />
