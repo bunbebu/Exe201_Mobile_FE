@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +20,7 @@ import { parsePaymentGuardError } from '@/lib/payment-guard';
 interface QuizQuestion {
   id: string;
   contentHtml: string;
+  type?: string;
   options: string[];
 }
 
@@ -47,7 +49,7 @@ export default function QuizScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<string, number | null>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [result, setResult] = useState<QuizResult | null>(null);
   const [quizDetails, setQuizDetails] = useState<Record<string, QuizDetail>>({});
@@ -85,13 +87,14 @@ export default function QuizScreen() {
         const qs: QuizQuestion[] = list.map((q: any) => ({
           id: q.id,
           contentHtml: q.contentHtml ?? '',
+          type: q.type ?? 'MULTIPLE_CHOICE',
           options: q.options ?? [],
         }));
 
         setQuestions(qs);
         setAnswers(
-          qs.reduce<Record<string, number | null>>((acc, q) => {
-            acc[q.id] = null;
+          qs.reduce<Record<string, string>>((acc, q) => {
+            acc[q.id] = '';
             return acc;
           }, {})
         );
@@ -111,7 +114,7 @@ export default function QuizScreen() {
     if (!lessonId || !tokens?.accessToken) return;
     if (!questions.length) return;
 
-    const unanswered = questions.filter((q) => answers[q.id] === null);
+    const unanswered = questions.filter((q) => !String(answers[q.id] ?? '').trim());
     if (unanswered.length > 0) {
       Alert.alert('Thiếu câu trả lời', 'Vui lòng trả lời tất cả câu hỏi trước khi nộp bài.');
       return;
@@ -121,11 +124,9 @@ export default function QuizScreen() {
     try {
       const payload = {
         answers: questions.map((q) => {
-          const selectedIndex = answers[q.id] ?? null;
-          const selectedOption = selectedIndex !== null ? q.options[selectedIndex] : '';
           return {
             questionId: q.id,
-            selectedAnswer: selectedOption, // Gửi text của option, không phải index
+            selectedAnswer: String(answers[q.id] ?? '').trim(),
           };
         }),
         timeSpentMs: questions.length * 30_000, // Tạm tính 30s mỗi câu
@@ -204,8 +205,8 @@ export default function QuizScreen() {
     setResult(null);
     setQuizDetails({});
     setAnswers(
-      questions.reduce<Record<string, number | null>>((acc, q) => {
-        acc[q.id] = null;
+      questions.reduce<Record<string, string>>((acc, q) => {
+        acc[q.id] = '';
         return acc;
       }, {})
     );
@@ -261,70 +262,99 @@ export default function QuizScreen() {
             {questions.map((q, index) => {
               const detail = quizDetails[q.id];
               const isSubmitted = result !== null;
+              const plainQuestion = q.contentHtml.replace(/<[^>]+>/g, '');
+              const questionType = q.type ?? 'MULTIPLE_CHOICE';
+              const isFillInBlank = questionType === 'FILL_IN_BLANK';
+              const selectedAnswer = String(answers[q.id] ?? '');
 
               return (
                 <View key={q.id} style={styles.questionCard}>
                   <Text style={styles.questionTitle}>
-                    Câu {index + 1}: {q.contentHtml.replace(/<[^>]+>/g, '')}
+                    Câu {index + 1}: {plainQuestion}
                   </Text>
-                  {q.options.map((opt, optIndex) => {
-                    const selected = answers[q.id] === optIndex;
-                    const isCorrect = false;
-                    const isWrong = false;
-                    const optionStyleArray: any[] = [styles.optionButton];
-                    const textStyleArray: any[] = [styles.optionText];
-
-                    if (isSubmitted && detail) {
-                      // So sánh option text với correctAnswer và selectedAnswer
-                      const isCorrectAnswer = detail.correctAnswer === opt;
-                      const isSelectedAnswer = detail.selectedAnswer === opt;
-
-                      if (isCorrectAnswer) {
-                        // Đáp án đúng -> màu xanh
-                        optionStyleArray.push(styles.optionButtonCorrect);
-                        textStyleArray.push(styles.optionTextCorrect);
-                        // isCorrect = true; // Không cần vì đã có logic render icon
-                      } else if (isSelectedAnswer && !detail.correct) {
-                        // Đáp án học sinh chọn nhưng sai -> màu đỏ
-                        optionStyleArray.push(styles.optionButtonWrong);
-                        textStyleArray.push(styles.optionTextWrong);
-                        // isWrong = true;
-                      }
-                    } else if (selected) {
-                      // Chưa submit, chỉ highlight khi selected
-                      optionStyleArray.push(styles.optionButtonSelected);
-                      textStyleArray.push(styles.optionTextSelected);
-                    }
-
-                    const isCorrectAnswer = isSubmitted && detail && detail.correctAnswer === opt;
-                    const isWrongAnswer = isSubmitted && detail && detail.selectedAnswer === opt && !detail.correct;
-
-                    return (
-                      <TouchableOpacity
-                        key={optIndex}
-                        style={optionStyleArray}
-                        onPress={() => {
+                  {isFillInBlank ? (
+                    <View>
+                      <TextInput
+                        style={[
+                          styles.fillInput,
+                          isSubmitted && detail?.correct ? styles.fillInputCorrect : null,
+                          isSubmitted && detail && !detail.correct ? styles.fillInputWrong : null,
+                        ]}
+                        placeholder="Nhập đáp án của bạn..."
+                        value={selectedAnswer}
+                        onChangeText={(text) => {
                           if (!isSubmitted) {
                             setAnswers((prev) => ({
                               ...prev,
-                              [q.id]: optIndex,
+                              [q.id]: text,
                             }));
                           }
                         }}
-                        disabled={isSubmitted}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={textStyleArray}>{opt}</Text>
-                          {isSubmitted && isCorrectAnswer && (
-                            <Ionicons name="checkmark-circle" size={20} color="#10B981" style={{ marginLeft: 8 }} />
-                          )}
-                          {isSubmitted && isWrongAnswer && (
-                            <Ionicons name="close-circle" size={20} color="#EF4444" style={{ marginLeft: 8 }} />
-                          )}
+                        editable={!isSubmitted}
+                      />
+                      {isSubmitted && detail && (
+                        <View style={styles.fillResultBox}>
+                          <Text style={styles.fillResultText}>
+                            Bạn trả lời: <Text style={{ fontWeight: '700' }}>{detail.selectedAnswer || '(trống)'}</Text>
+                          </Text>
+                          <Text style={styles.fillResultText}>
+                            Đáp án đúng: <Text style={{ fontWeight: '700' }}>{detail.correctAnswer || '(không có)'}</Text>
+                          </Text>
                         </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                      )}
+                    </View>
+                  ) : (
+                    q.options.map((opt, optIndex) => {
+                      const selected = selectedAnswer === opt;
+                      const optionStyleArray: any[] = [styles.optionButton];
+                      const textStyleArray: any[] = [styles.optionText];
+
+                      if (isSubmitted && detail) {
+                        const isCorrectAnswer = detail.correctAnswer === opt;
+                        const isSelectedAnswer = detail.selectedAnswer === opt;
+
+                        if (isCorrectAnswer) {
+                          optionStyleArray.push(styles.optionButtonCorrect);
+                          textStyleArray.push(styles.optionTextCorrect);
+                        } else if (isSelectedAnswer && !detail.correct) {
+                          optionStyleArray.push(styles.optionButtonWrong);
+                          textStyleArray.push(styles.optionTextWrong);
+                        }
+                      } else if (selected) {
+                        optionStyleArray.push(styles.optionButtonSelected);
+                        textStyleArray.push(styles.optionTextSelected);
+                      }
+
+                      const isCorrectAnswer = isSubmitted && detail && detail.correctAnswer === opt;
+                      const isWrongAnswer = isSubmitted && detail && detail.selectedAnswer === opt && !detail.correct;
+
+                      return (
+                        <TouchableOpacity
+                          key={optIndex}
+                          style={optionStyleArray}
+                          onPress={() => {
+                            if (!isSubmitted) {
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [q.id]: opt,
+                              }));
+                            }
+                          }}
+                          disabled={isSubmitted}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={textStyleArray}>{opt}</Text>
+                            {isSubmitted && isCorrectAnswer && (
+                              <Ionicons name="checkmark-circle" size={20} color="#10B981" style={{ marginLeft: 8 }} />
+                            )}
+                            {isSubmitted && isWrongAnswer && (
+                              <Ionicons name="close-circle" size={20} color="#EF4444" style={{ marginLeft: 8 }} />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                   {result && quizDetails[q.id]?.explanation && (
                     <View style={styles.explanationContainer}>
                       <Text style={styles.explanationText}>{quizDetails[q.id].explanation}</Text>
@@ -524,6 +554,37 @@ const styles = StyleSheet.create({
   optionTextWrong: {
     color: '#DC2626',
     fontWeight: '600',
+  },
+  fillInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
+  },
+  fillInputCorrect: {
+    borderColor: '#10B981',
+    borderWidth: 2,
+    backgroundColor: '#D1FAE5',
+  },
+  fillInputWrong: {
+    borderColor: '#EF4444',
+    borderWidth: 2,
+    backgroundColor: '#FEE2E2',
+  },
+  fillResultBox: {
+    marginTop: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 10,
+  },
+  fillResultText: {
+    fontSize: 13,
+    color: '#374151',
+    marginBottom: 4,
   },
   explanationContainer: {
     marginTop: 12,
