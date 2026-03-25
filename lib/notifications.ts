@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { SchedulableTriggerInputTypes } from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -83,7 +84,11 @@ export async function scheduleLocalReminder(payload: {
       body: payload.body,
       data: payload.data ?? {},
     },
-    trigger: { seconds: Math.max(1, Math.floor(payload.secondsFromNow)) },
+    trigger: {
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      repeats: false,
+      seconds: Math.max(1, Math.floor(payload.secondsFromNow)),
+    },
   });
 }
 

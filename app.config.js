@@ -18,8 +18,6 @@ export default {
         backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
-      edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false,
     },
     web: {
       output: "static",
@@ -42,7 +40,6 @@ export default {
     ],
     experiments: {
       typedRoutes: true,
-      reactCompiler: true,
     },
     extra: {
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8888",
