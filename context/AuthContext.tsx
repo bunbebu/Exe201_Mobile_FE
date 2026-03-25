@@ -557,7 +557,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (Platform.OS === "web") {
         const callbackUrl = `${window.location.origin}/oauth/google-callback-web`;
-        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirect_uri=${encodeURIComponent(
+        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
           callbackUrl
         )}`;
         window.location.href = loginUrl;
@@ -567,7 +567,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const redirectUri = Linking.createURL("oauth-callback", {
         scheme: APP_SCHEME,
       });
-      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirect_uri=${encodeURIComponent(
+      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
         redirectUri
       )}`;
 
