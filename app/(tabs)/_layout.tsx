@@ -9,7 +9,7 @@ import { useColors } from "@/hooks/use-colors";
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
-  const hiddenTabNames = new Set(["notifications", "parent-linking"]);
+  const hiddenTabNames = new Set(["notifications", "parent-linking", "add"]);
   const visibleRoutes = state.routes.filter(
     (route: any) => !hiddenTabNames.has(route.name)
   );
@@ -105,7 +105,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="explore" />
       <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="add" />
+      <Tabs.Screen name="add" options={{ href: null }} />
       <Tabs.Screen name="stats" />
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="parent-linking" options={{ href: null }} />
