@@ -7,8 +7,8 @@ import { Stack } from "expo-router";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import * as Notifications from "expo-notifications";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 
 import { AuthProvider } from "@/context/AuthContext";
 import { AppThemeProvider, useAppTheme } from "@/context/ThemeContext";
@@ -22,25 +22,36 @@ function InnerLayout() {
   const { theme } = useAppTheme();
 
   useEffect(() => {
-    // Foreground presentation (can be refined per design later)
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
+    // Do not initialize expo-notifications in web/SSR.
+    if (Platform.OS === "web") return;
 
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      const href = extractDeepLinkFromNotification(data);
-      if (href) {
-        router.push(href as any);
-      }
-    });
+    let isMounted = true;
+    let sub: { remove: () => void } | null = null;
+
+    void (async () => {
+      const Notifications = require("expo-notifications") as typeof import("expo-notifications");
+      if (!isMounted) return;
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        const href = extractDeepLinkFromNotification(data);
+        if (href) {
+          router.push(href as any);
+        }
+      });
+    })();
 
     return () => {
-      sub.remove();
+      isMounted = false;
+      sub?.remove();
     };
   }, []);
 

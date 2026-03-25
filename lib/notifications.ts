@@ -1,7 +1,6 @@
-import * as Notifications from "expo-notifications";
-import { SchedulableTriggerInputTypes } from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import type * as NotificationsType from "expo-notifications";
 
 export type NotificationDeepLinkData = {
   /**
@@ -13,6 +12,12 @@ export type NotificationDeepLinkData = {
    */
   url?: string;
 };
+
+async function getNotificationsModule(): Promise<typeof NotificationsType | null> {
+  // Avoid importing expo-notifications during web SSR.
+  if (Platform.OS === "web" || typeof window === "undefined") return null;
+  return require("expo-notifications") as typeof NotificationsType;
+}
 
 export function extractDeepLinkFromNotification(
   data: unknown
@@ -31,6 +36,8 @@ export function extractDeepLinkFromNotification(
 
 export async function ensureAndroidNotificationChannel() {
   if (Platform.OS !== "android") return;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
   await Notifications.setNotificationChannelAsync("default", {
     name: "Default",
     importance: Notifications.AndroidImportance.MAX,
@@ -40,13 +47,15 @@ export async function ensureAndroidNotificationChannel() {
 }
 
 export async function requestPushPermissions(): Promise<{
-  status: Notifications.PermissionStatus;
+  status: "granted" | "denied" | "undetermined";
 }> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return { status: "denied" };
   const settings = await Notifications.getPermissionsAsync();
-  let status = settings.status;
+  let status = settings.status as "granted" | "denied" | "undetermined";
   if (status !== "granted") {
     const asked = await Notifications.requestPermissionsAsync();
-    status = asked.status;
+    status = asked.status as "granted" | "denied" | "undetermined";
   }
   return { status };
 }
@@ -57,6 +66,8 @@ export async function getExpoPushTokenSafe(): Promise<string | null> {
   // SDK 53+: Expo Go não suporta remote push token.
   // Só funciona em development build / app nativo.
   if (Constants.appOwnership === "expo") return null;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return null;
 
   const { status } = await requestPushPermissions();
   if (status !== "granted") return null;
@@ -77,6 +88,10 @@ export async function scheduleLocalReminder(payload: {
   secondsFromNow: number;
   data?: NotificationDeepLinkData;
 }): Promise<string> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) {
+    throw new Error("Notifications are unavailable in this environment.");
+  }
   await ensureAndroidNotificationChannel();
   return await Notifications.scheduleNotificationAsync({
     content: {
@@ -85,7 +100,7 @@ export async function scheduleLocalReminder(payload: {
       data: payload.data ?? {},
     },
     trigger: {
-      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       repeats: false,
       seconds: Math.max(1, Math.floor(payload.secondsFromNow)),
     },
