@@ -491,15 +491,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setState((prev) => ({ ...prev, onboardingCompleted: true }));
   }, []);
 
+  const hydrateOAuthAccessToken = useCallback(
+    async (payload: {
+      accessToken: string;
+      refreshToken?: string;
+      sessionId?: string;
+    }) => {
+      const userRes = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+        headers: {
+          Authorization: `Bearer ${payload.accessToken}`,
+        },
+      });
+
+      if (!userRes.ok) {
+        throw new Error("Không thể lấy thông tin người dùng từ token OAuth.");
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const userData: any = await userRes.json();
+      if (userData.role !== "STUDENT") {
+        throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
+      }
+
+      const tokens: AuthTokens = {
+        accessToken: payload.accessToken,
+        refreshToken: payload.refreshToken ?? "",
+        sessionId: payload.sessionId,
+      };
+
+      const onboardingFromApi = userData?.studentProfile?.onboardingCompleted;
+      const onboardingFromStorage = await AsyncStorage.getItem(
+        STORAGE_KEYS.ONBOARDING_COMPLETED
+      );
+      const onboardingCompleted =
+        typeof onboardingFromApi === "boolean"
+          ? onboardingFromApi
+          : onboardingFromStorage === "true";
+
+      const user: AuthUser = {
+        id: userData.id,
+        email: userData.email,
+        role: userData.role,
+        avatarUrl: userData.avatarUrl ?? null,
+      };
+
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
+        AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user)),
+      ]);
+
+      setState((prev) => ({
+        ...prev,
+        user,
+        tokens,
+        isAuthenticated: true,
+        onboardingCompleted,
+        isLoading: false,
+      }));
+    },
+    []
+  );
+
   const loginWithGoogle = useCallback(async () => {
-    console.log('[AUTH] loginWithGoogle called, Platform:', Platform.OS);
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
       if (Platform.OS === "web") {
-        // Web: full-page redirect flow (no popup)
-        // Backend sẽ xử lý Google OAuth và redirect lại FE tại /oauth/google-callback-web
         const callbackUrl = `${window.location.origin}/oauth/google-callback-web`;
-        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
+        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirect_uri=${encodeURIComponent(
           callbackUrl
         )}`;
         window.location.href = loginUrl;
@@ -517,84 +575,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (result.type === "success" && result.url) {
         const url = new URL(result.url);
-        const token = url.searchParams.get("token");
+        const accessToken =
+          url.searchParams.get("accessToken") ?? url.searchParams.get("token");
+        const refreshToken = url.searchParams.get("refreshToken") ?? "";
+        const sessionId = url.searchParams.get("sessionId") ?? undefined;
         const completionToken = url.searchParams.get("completionToken");
 
-        if (token) {
-          try {
-            const userRes = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            if (userRes.ok) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-              const userData: any = await userRes.json();
-
-              if (userData.role !== "STUDENT") {
-                throw new Error(
-                  "Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student)."
-                );
-              }
-
-              const tokens: AuthTokens = {
-                accessToken: token,
-                refreshToken: "",
-                sessionId: undefined,
-              };
-
-              await Promise.all([
-                AsyncStorage.setItem(
-                  STORAGE_KEYS.TOKENS,
-                  JSON.stringify(tokens)
-                ),
-                AsyncStorage.setItem(
-                  STORAGE_KEYS.USER,
-                  JSON.stringify({
-                    id: userData.id,
-                    email: userData.email,
-                    role: userData.role,
-                    avatarUrl: userData.avatarUrl ?? null,
-                  })
-                ),
-              ]);
-
-              setState((prev) => ({
-                ...prev,
-                user: {
-                  id: userData.id,
-                  email: userData.email,
-                  role: userData.role,
-                  avatarUrl: userData.avatarUrl ?? null,
-                },
-                tokens,
-                isAuthenticated: true,
-                isLoading: false,
-              }));
-              return;
-            } else {
-              throw new Error("Không thể lấy thông tin người dùng từ token.");
-            }
-          } catch (err) {
-            if (completionToken) {
-              await AsyncStorage.setItem(
-                STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
-                completionToken
-              );
-              setState((prev) => ({ ...prev, isLoading: false }));
-              return;
-            }
-            throw err;
-          }
-        } else if (completionToken) {
+        if (completionToken && !accessToken) {
           await AsyncStorage.setItem(
             STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
             completionToken
           );
           setState((prev) => ({ ...prev, isLoading: false }));
           return;
-        } else {
+        }
+
+        if (accessToken) {
+          await hydrateOAuthAccessToken({ accessToken, refreshToken, sessionId });
+          return;
+        }
+
+        {
           throw new Error("Không nhận được token từ OAuth callback.");
         }
       } else if (result.type === "cancel") {
@@ -608,7 +609,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
-  }, []);
+  }, [hydrateOAuthAccessToken]);
 
   const loginWithFacebook = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
@@ -628,78 +629,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
 
       if (result.type === "success" && result.url) {
-        // Parse callback URL
         const url = new URL(result.url);
-        const token = url.searchParams.get("token");
+        const accessToken =
+          url.searchParams.get("accessToken") ?? url.searchParams.get("token");
+        const refreshToken = url.searchParams.get("refreshToken") ?? "";
+        const sessionId = url.searchParams.get("sessionId") ?? undefined;
         const completionToken = url.searchParams.get("completionToken");
 
-        if (token) {
-          // User already has account - token might be accessToken or a temporary token
-          // Try to use it as accessToken first, or call backend to exchange
-          try {
-            const userRes = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            if (userRes.ok) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-              const userData: any = await userRes.json();
-
-              // Only allow student role
-              if (userData.role !== "STUDENT") {
-                throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
-              }
-
-              const tokens: AuthTokens = {
-                accessToken: token,
-                refreshToken: "", // Backend should provide this, but for now we'll leave it empty
-                sessionId: undefined,
-              };
-
-              await Promise.all([
-                AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
-                AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
-                  id: userData.id,
-                  email: userData.email,
-                  role: userData.role,
-                  avatarUrl: userData.avatarUrl ?? null,
-                })),
-              ]);
-
-              setState((prev) => ({
-                ...prev,
-                user: {
-                  id: userData.id,
-                  email: userData.email,
-                  role: userData.role,
-                  avatarUrl: userData.avatarUrl ?? null,
-                },
-                tokens,
-                isAuthenticated: true,
-                isLoading: false,
-              }));
-              return;
-            } else {
-              throw new Error("Không thể lấy thông tin người dùng từ token.");
-            }
-          } catch (err) {
-            // If token exchange fails, treat it as completionToken needed
-            if (completionToken) {
-              await AsyncStorage.setItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN, completionToken);
-              setState((prev) => ({ ...prev, isLoading: false }));
-              return;
-            }
-            throw err;
-          }
-        } else if (completionToken) {
-          // First time login, need to complete profile
+        if (completionToken && !accessToken) {
           await AsyncStorage.setItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN, completionToken);
           setState((prev) => ({ ...prev, isLoading: false }));
-          // Navigate to complete profile screen will be handled by the component
           return;
-        } else {
+        }
+
+        if (accessToken) {
+          await hydrateOAuthAccessToken({ accessToken, refreshToken, sessionId });
+          return;
+        }
+
+        {
           throw new Error("Không nhận được token từ OAuth callback.");
         }
       } else if (result.type === "cancel") {
@@ -713,7 +661,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
-  }, []);
+  }, [hydrateOAuthAccessToken]);
 
   const completeOAuthProfile = useCallback(
     async (payload: {
