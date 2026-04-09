@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -82,7 +83,9 @@ type ExamSubmitResponse = {
 };
 
 function stripHtml(html: string) {
-  return String(html || "").replace(/<[^>]+>/g, "").trim();
+  return String(html || "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
 }
 
 function formatTime(seconds: number) {
@@ -134,24 +137,32 @@ export default function ExamStartScreen() {
     setIsLoading(true);
     (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/exams/${examId}/start`, {
-          headers: {
-            Authorization: `Bearer ${tokens.accessToken}`,
-            accept: "application/json",
+        const res = await fetch(
+          `${API_BASE_URL}/api/v1/exams/${examId}/start`,
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.accessToken}`,
+              accept: "application/json",
+            },
           },
-        });
+        );
 
         if (!res.ok) {
-        const paymentGuard = await parsePaymentGuardError(res);
-        if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
-          const mode = paymentGuard?.requiresRenewal ? "renewal" : "upgrade";
-          Alert.alert(
-            paymentGuard?.requiresRenewal ? "Can gia han Pro" : "Can nang cap Pro",
-            paymentGuard?.message || "Vui long nang cap de mo khoa thi thu."
-          );
-          router.replace({ pathname: "/paywall", params: { source: "exam-start", mode } } as any);
-          return;
-        }
+          const paymentGuard = await parsePaymentGuardError(res);
+          if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
+            const mode = paymentGuard?.requiresRenewal ? "renewal" : "upgrade";
+            Alert.alert(
+              paymentGuard?.requiresRenewal
+                ? "Can gia han Pro"
+                : "Can nang cap Pro",
+              paymentGuard?.message || "Vui long nang cap de mo khoa thi thu.",
+            );
+            router.replace({
+              pathname: "/paywall",
+              params: { source: "exam-start", mode },
+            } as any);
+            return;
+          }
           const text = await res.text().catch(() => "");
           throw new Error(text || "Không thể tải đề thi thử.");
         }
@@ -220,6 +231,13 @@ export default function ExamStartScreen() {
     }));
   };
 
+  const handleFillAnswer = (questionId: string, text: string) => {
+    setSelected((prev) => ({
+      ...prev,
+      [questionId]: text,
+    }));
+  };
+
   const payloadForSubmit = async (): Promise<ExamSubmitPayload> => {
     if (!exam || startedAtRef.current == null) {
       throw new Error("Phiên thi chưa được khởi tạo.");
@@ -229,14 +247,17 @@ export default function ExamStartScreen() {
     const totalTimeSpentMs = Math.max(0, now - startedAtRef.current);
 
     const questions = exam.questions;
-    const perQuestionTime = questions.length > 0 ? Math.floor(totalTimeSpentMs / questions.length) : 0;
+    const perQuestionTime =
+      questions.length > 0
+        ? Math.floor(totalTimeSpentMs / questions.length)
+        : 0;
     const currentSelected = selectedRef.current;
 
     // Some backends reject empty selectedAnswer (validation error on answers.*.selectedAnswer).
     // Submit only answered questions; unanswered ones are treated as not attempted.
     const answers: ExamSubmitAnswer[] = questions
       .map((q) => {
-        const selectedAnswer = currentSelected[q.id];
+        const selectedAnswer = String(currentSelected[q.id] ?? "").trim();
         if (!selectedAnswer) return null;
         return {
           questionId: q.id,
@@ -266,14 +287,14 @@ export default function ExamStartScreen() {
       const res = await fetch(
         `${API_BASE_URL}/api/v1/exams/${exam.examId ?? examId}/submit`,
         {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${tokens.accessToken}`,
-          accept: "application/json",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokens.accessToken}`,
+            accept: "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-        }
       );
 
       if (!res.ok) {
@@ -281,10 +302,16 @@ export default function ExamStartScreen() {
         if (paymentGuard?.requiresUpgrade || paymentGuard?.requiresRenewal) {
           const mode = paymentGuard?.requiresRenewal ? "renewal" : "upgrade";
           Alert.alert(
-            paymentGuard?.requiresRenewal ? "Can gia han Pro" : "Can nang cap Pro",
-            paymentGuard?.message || "Vui long nang cap goi de tiep tuc thi thu."
+            paymentGuard?.requiresRenewal
+              ? "Can gia han Pro"
+              : "Can nang cap Pro",
+            paymentGuard?.message ||
+              "Vui long nang cap goi de tiep tuc thi thu.",
           );
-          router.push({ pathname: "/paywall", params: { source: "exam-submit", mode } } as any);
+          router.push({
+            pathname: "/paywall",
+            params: { source: "exam-submit", mode },
+          } as any);
           return;
         }
         const text = await res.text().catch(() => "");
@@ -303,7 +330,8 @@ export default function ExamStartScreen() {
         chapterId: data.chapterId,
         scope: data.scope,
         score: data.score ?? 0,
-        totalQuestions: data.totalQuestions ?? exam.totalQuestions ?? totalQuestions,
+        totalQuestions:
+          data.totalQuestions ?? exam.totalQuestions ?? totalQuestions,
         correctAnswers: data.correctAnswers ?? 0,
         passingScore: data.passingScore ?? exam.passingScore ?? 0,
         passed: data.passed ?? false,
@@ -316,7 +344,10 @@ export default function ExamStartScreen() {
       setStep("result");
 
       if (!opts?.auto) {
-        Alert.alert("Hoàn tất", "Bạn đã nộp bài. Hệ thống chấm điểm ngay lập tức.");
+        Alert.alert(
+          "Hoàn tất",
+          "Bạn đã nộp bài. Hệ thống chấm điểm ngay lập tức.",
+        );
       }
     } catch (e: any) {
       console.error("[EXAM] submit error:", e);
@@ -352,8 +383,13 @@ export default function ExamStartScreen() {
     return (
       <SafeAreaView style={styles.loadingScreen}>
         <Ionicons name="alert-circle-outline" size={48} color="#6B7280" />
-        <Text style={styles.loadingText}>{bootstrapError || "Không tìm thấy đề thi."}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.loadingText}>
+          {bootstrapError || "Không tìm thấy đề thi."}
+        </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Text style={styles.backButtonText}>Quay lại</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -366,9 +402,15 @@ export default function ExamStartScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
               <Ionicons name="chevron-back" size={24} color="#111827" />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
@@ -390,6 +432,8 @@ export default function ExamStartScreen() {
 
               {exam.questions.map((q, idx) => {
                 const chosen = selected[q.id];
+                const qType = (q.type ?? "MULTIPLE_CHOICE").toUpperCase();
+                const isFillInBlank = qType === "FILL_IN_BLANK";
                 return (
                   <View key={q.id} style={styles.questionCard}>
                     <Text style={styles.questionTitle}>
@@ -400,32 +444,53 @@ export default function ExamStartScreen() {
                       {stripHtml(q.contentHtml)}
                     </Text>
 
-                    <View style={styles.options}>
-                      {q.options.map((opt) => {
-                        const isChosen = chosen === opt;
-                        return (
-                          <TouchableOpacity
-                            key={opt}
-                            style={[
-                              styles.optionButton,
-                              isChosen && styles.optionChosen,
-                            ]}
-                            onPress={() => handleSelectOption(q.id, opt)}
-                            disabled={isSubmitting}
-                          >
-                            <Text style={[styles.optionText, isChosen && styles.optionTextChosen]}>
-                              {opt}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
+                    {isFillInBlank ? (
+                      <TextInput
+                        style={styles.fillInput}
+                        placeholder="Nhập đáp án của bạn..."
+                        value={String(chosen ?? "")}
+                        onChangeText={(text) => handleFillAnswer(q.id, text)}
+                        editable={!isSubmitting}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    ) : (
+                      <View style={styles.options}>
+                        {q.options.map((opt) => {
+                          const isChosen = chosen === opt;
+                          return (
+                            <TouchableOpacity
+                              key={opt}
+                              style={[
+                                styles.optionButton,
+                                isChosen && styles.optionChosen,
+                              ]}
+                              onPress={() => handleSelectOption(q.id, opt)}
+                              disabled={isSubmitting}
+                            >
+                              <Text
+                                style={[
+                                  styles.optionText,
+                                  isChosen && styles.optionTextChosen,
+                                ]}
+                              >
+                                {opt}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
                 );
               })}
 
               <TouchableOpacity
-                style={[styles.submitButton, (isSubmitting || exam.questions.length === 0) && styles.submitDisabled]}
+                style={[
+                  styles.submitButton,
+                  (isSubmitting || exam.questions.length === 0) &&
+                    styles.submitDisabled,
+                ]}
                 onPress={() => void handleSubmitExam()}
                 disabled={isSubmitting || exam.questions.length === 0}
               >
@@ -447,15 +512,20 @@ export default function ExamStartScreen() {
               <View style={styles.resultSummary}>
                 <Text style={styles.resultTitle}>Kết quả</Text>
                 <Text style={styles.resultText}>
-                  Điểm: {result?.score ?? 0}% • Đúng {result?.correctAnswers ?? 0}/{result?.totalQuestions ?? totalQuestions} câu
+                  Điểm: {result?.score ?? 0}% • Đúng{" "}
+                  {result?.correctAnswers ?? 0}/
+                  {result?.totalQuestions ?? totalQuestions} câu
                 </Text>
                 <Text
                   style={[
                     styles.resultPassed,
-                    (result?.passed ?? false) ? styles.resultPassedOk : styles.resultPassedFail,
+                    (result?.passed ?? false)
+                      ? styles.resultPassedOk
+                      : styles.resultPassedFail,
                   ]}
                 >
-                  {(result?.passed ?? false) ? "Đạt" : "Chưa đạt"} • Ngưỡng {result?.passingScore ?? exam.passingScore ?? 0}%
+                  {(result?.passed ?? false) ? "Đạt" : "Chưa đạt"} • Ngưỡng{" "}
+                  {result?.passingScore ?? exam.passingScore ?? 0}%
                 </Text>
               </View>
 
@@ -473,7 +543,9 @@ export default function ExamStartScreen() {
                       <View
                         style={[
                           styles.resultBadge,
-                          isCorrect ? styles.resultBadgeOk : styles.resultBadgeFail,
+                          isCorrect
+                            ? styles.resultBadgeOk
+                            : styles.resultBadgeFail,
                         ]}
                       >
                         <Ionicons
@@ -484,7 +556,9 @@ export default function ExamStartScreen() {
                         <Text
                           style={[
                             styles.resultBadgeText,
-                            isCorrect ? { color: "#059669" } : { color: "#DC2626" },
+                            isCorrect
+                              ? { color: "#059669" }
+                              : { color: "#DC2626" },
                           ]}
                         >
                           {isCorrect ? "Đúng" : "Sai"}
@@ -492,8 +566,15 @@ export default function ExamStartScreen() {
                       </View>
                     </View>
 
+                    <Text style={styles.correctAnswerLabel}>Bạn trả lời</Text>
+                    <Text style={styles.correctAnswerText}>
+                      {d.selectedAnswer || "(trống)"}
+                    </Text>
+
                     <Text style={styles.correctAnswerLabel}>Đáp án đúng</Text>
-                    <Text style={styles.correctAnswerText}>{d.correctAnswer}</Text>
+                    <Text style={styles.correctAnswerText}>
+                      {d.correctAnswer}
+                    </Text>
 
                     {!!d.explanation && (
                       <>
@@ -514,7 +595,12 @@ export default function ExamStartScreen() {
                   router.replace(`/exams/${examId}/start` as any);
                 }}
               >
-                <Ionicons name="refresh" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Ionicons
+                  name="refresh"
+                  size={18}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
                 <Text style={styles.retryButtonText}>Làm lại</Text>
               </TouchableOpacity>
             </View>
@@ -527,14 +613,39 @@ export default function ExamStartScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F3F4F6" },
-  scrollContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 40 },
-  loadingScreen: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 40,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
   loadingText: { marginTop: 12, fontSize: 14, color: "#4B5563" },
 
-  header: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 16 },
-  backButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 16,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
-  headerSubtitle: { marginTop: 6, fontSize: 13, color: "#6B7280", lineHeight: 18 },
+  headerSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#6B7280",
+    lineHeight: 18,
+  },
 
   headerBadge: {
     flexDirection: "row",
@@ -549,14 +660,48 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerBadgeText: { fontSize: 12, fontWeight: "700", color: "#3B82F6" },
-  headerAction: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerAction: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-  card: { backgroundColor: "#fff", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#E5E7EB" },
-  sectionTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10, color: "#111827" },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 10,
+    color: "#111827",
+  },
 
-  questionCard: { backgroundColor: "#F9FAFB", borderRadius: 14, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#EEF2F7" },
-  questionTitle: { fontSize: 14, fontWeight: "800", color: "#111827", marginBottom: 8 },
-  questionContent: { fontSize: 13, fontWeight: "600", color: "#374151", lineHeight: 18, marginBottom: 12 },
+  questionCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#EEF2F7",
+  },
+  questionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  questionContent: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    lineHeight: 18,
+    marginBottom: 12,
+  },
   options: { gap: 10 },
   optionButton: {
     borderRadius: 12,
@@ -572,6 +717,18 @@ const styles = StyleSheet.create({
   },
   optionText: { fontSize: 14, fontWeight: "700", color: "#111827" },
   optionTextChosen: { color: "#fff" },
+
+  fillInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
 
   submitButton: {
     backgroundColor: "#3B82F6",
@@ -594,8 +751,18 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
   },
-  resultTitle: { fontSize: 16, fontWeight: "800", color: "#047857", marginBottom: 6 },
-  resultText: { fontSize: 14, fontWeight: "700", color: "#0F766E", marginBottom: 6 },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#047857",
+    marginBottom: 6,
+  },
+  resultText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F766E",
+    marginBottom: 6,
+  },
   resultPassed: { fontSize: 13, fontWeight: "900" },
   resultPassedOk: { color: "#059669" },
   resultPassedFail: { color: "#DC2626" },
@@ -608,17 +775,53 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  resultRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 },
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 8,
+  },
   resultQuestionTitle: { fontSize: 14, fontWeight: "800", color: "#111827" },
-  resultBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  resultBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   resultBadgeOk: { backgroundColor: "#D1FAE5", borderColor: "#10B981" },
   resultBadgeFail: { backgroundColor: "#FEE2E2", borderColor: "#EF4444" },
   resultBadgeText: { fontSize: 12, fontWeight: "900" },
 
-  correctAnswerLabel: { marginTop: 6, fontSize: 12, fontWeight: "800", color: "#111827" },
-  correctAnswerText: { marginTop: 6, fontSize: 14, fontWeight: "800", color: "#111827" },
-  explainLabel: { marginTop: 10, fontSize: 12, fontWeight: "900", color: "#111827" },
-  explainText: { marginTop: 6, fontSize: 13, fontWeight: "600", color: "#4B5563", fontStyle: "italic", lineHeight: 18 },
+  correctAnswerLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  correctAnswerText: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  explainLabel: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  explainText: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4B5563",
+    fontStyle: "italic",
+    lineHeight: 18,
+  },
 
   retryButton: {
     backgroundColor: "#10B981",
@@ -634,4 +837,3 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 16, fontWeight: "700", color: "#3B82F6" },
   retryButtonDisabled: { opacity: 0.6 },
 });
-
