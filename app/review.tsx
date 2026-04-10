@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,12 +8,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { API_BASE_URL } from '@/config/api';
-import { useAuth } from '@/context/AuthContext';
+import { API_BASE_URL } from "@/config/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface BankQuestion {
   id: string;
@@ -46,52 +47,62 @@ interface PracticeResult {
 }
 
 function stripHtml(html: string) {
-  return String(html || '').replace(/<[^>]+>/g, '').trim();
+  return String(html || "")
+    .replace(/<[^>]+>/g, "")
+    .trim();
 }
 
 function isNumericString(s: string) {
-  return /^-?\d+$/.test(String(s ?? '').trim());
+  return /^-?\d+$/.test(String(s ?? "").trim());
 }
 
 export default function ReviewScreen() {
   const { tokens } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<WrongBankItem[]>([]);
-  const [selected, setSelected] = useState<Record<string, number | null>>({});
+  const [selected, setSelected] = useState<
+    Record<string, number | string | null>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<Record<string, PracticeResult>>({});
 
-  const unresolvedItems = useMemo(() => items.filter((x) => !x.isMastered), [items]);
+  const unresolvedItems = useMemo(
+    () => items.filter((x) => !x.isMastered),
+    [items],
+  );
 
   const fetchBank = async () => {
     if (!tokens?.accessToken) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/wrong-answers/my-bank?isMastered=false`, {
-        headers: {
-          Authorization: `Bearer ${tokens.accessToken}`,
-          accept: 'application/json',
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/wrong-answers/my-bank?isMastered=false`,
+        {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+            accept: "application/json",
+          },
         },
-      });
+      );
 
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || 'Không thể tải kho câu sai.');
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Không thể tải kho câu sai.");
       }
 
       const raw: any = await res.json();
       const data: WrongBankItem[] = raw?.data ?? [];
       setItems(Array.isArray(data) ? data : []);
 
-      const init: Record<string, number | null> = {};
+      const init: Record<string, number | string | null> = {};
       (Array.isArray(data) ? data : []).forEach((it) => {
         init[it.questionId] = null;
       });
       setSelected(init);
       setResults({});
     } catch (e: any) {
-      console.error('[REVIEW] fetchBank error:', e);
-      Alert.alert('Lỗi', e?.message ?? 'Không thể tải kho câu sai.');
+      console.error("[REVIEW] fetchBank error:", e);
+      Alert.alert("Lỗi", e?.message ?? "Không thể tải kho câu sai.");
     } finally {
       setIsLoading(false);
     }
@@ -105,13 +116,21 @@ export default function ReviewScreen() {
   const handleSubmitPractice = async () => {
     if (!tokens?.accessToken) return;
     if (!unresolvedItems.length) {
-      Alert.alert('Ôn tập', 'Bạn không còn câu sai nào cần ôn tập.');
+      Alert.alert("Ôn tập", "Bạn không còn câu sai nào cần ôn tập.");
       return;
     }
 
-    const unanswered = unresolvedItems.filter((it) => selected[it.questionId] === null);
+    const unanswered = unresolvedItems.filter((it) => {
+      const qType = String(it.question?.type ?? "").toUpperCase();
+      const v = selected[it.questionId];
+      if (qType === "FILL_IN_BLANK") return String(v ?? "").trim().length === 0;
+      return v === null;
+    });
     if (unanswered.length > 0) {
-      Alert.alert('Thiếu câu trả lời', 'Vui lòng chọn đáp án cho tất cả câu trước khi nộp.');
+      Alert.alert(
+        "Thiếu câu trả lời",
+        "Vui lòng chọn đáp án cho tất cả câu trước khi nộp.",
+      );
       return;
     }
 
@@ -120,13 +139,26 @@ export default function ReviewScreen() {
       const payload = {
         answers: unresolvedItems.map((it) => {
           const q = it.question;
-          const selectedIndex = selected[it.questionId] ?? 0;
+          const qType = String(q?.type ?? "").toUpperCase();
+          const rawSelected = selected[it.questionId];
+
+          if (qType === "FILL_IN_BLANK") {
+            return {
+              questionId: it.questionId,
+              selectedAnswer: String(rawSelected ?? "").trim(),
+            };
+          }
+
+          const selectedIndex =
+            typeof rawSelected === "number" && Number.isFinite(rawSelected)
+              ? rawSelected
+              : 0;
 
           // Swagger practice example dùng selectedAnswer là index string ("0", "1"...)
           // Nếu backend sau này chuyển sang text, vẫn fallback sang option text.
           const selectedAnswer = isNumericString(q.correctAnswer)
             ? String(selectedIndex)
-            : String(q.options?.[selectedIndex] ?? '');
+            : String(q.options?.[selectedIndex] ?? "");
 
           return {
             questionId: it.questionId,
@@ -136,18 +168,18 @@ export default function ReviewScreen() {
       };
 
       const res = await fetch(`${API_BASE_URL}/api/v1/wrong-answers/practice`, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${tokens.accessToken}`,
-          accept: 'application/json',
-          'Content-Type': 'application/json',
+          accept: "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || 'Không thể nộp bài ôn tập.');
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Không thể nộp bài ôn tập.");
       }
 
       const raw: any = await res.json();
@@ -162,17 +194,25 @@ export default function ReviewScreen() {
       }
       setResults(map);
 
-      const allCorrect = unresolvedItems.every((it) => map[it.questionId]?.isCorrect === true);
+      const allCorrect = unresolvedItems.every(
+        (it) => map[it.questionId]?.isCorrect === true,
+      );
 
       if (allCorrect) {
-        Alert.alert('Ôn tập', 'Tuyệt! Bạn đã làm đúng hết. Kho câu sai sẽ được cập nhật.');
+        Alert.alert(
+          "Ôn tập",
+          "Tuyệt! Bạn đã làm đúng hết. Kho câu sai sẽ được cập nhật.",
+        );
         await fetchBank();
       } else {
-        Alert.alert('Ôn tập', 'Bạn vẫn còn câu sai. Hãy xem lại và làm lại cho đến khi đúng hết.');
+        Alert.alert(
+          "Ôn tập",
+          "Bạn vẫn còn câu sai. Hãy xem lại và làm lại cho đến khi đúng hết.",
+        );
       }
     } catch (e: any) {
-      console.error('[REVIEW] practice error:', e);
-      Alert.alert('Lỗi', e?.message ?? 'Không thể nộp bài ôn tập.');
+      console.error("[REVIEW] practice error:", e);
+      Alert.alert("Lỗi", e?.message ?? "Không thể nộp bài ôn tập.");
     } finally {
       setIsSubmitting(false);
     }
@@ -180,16 +220,26 @@ export default function ReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
             <Ionicons name="chevron-back" size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>
             Kho câu sai
           </Text>
-          <TouchableOpacity onPress={() => fetchBank()} style={styles.backButton} disabled={isLoading}>
+          <TouchableOpacity
+            onPress={() => fetchBank()}
+            style={styles.backButton}
+            disabled={isLoading}
+          >
             <Ionicons name="refresh" size={20} color="#111827" />
           </TouchableOpacity>
         </View>
@@ -198,7 +248,9 @@ export default function ReviewScreen() {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Cần ôn tập</Text>
           <Text style={styles.summaryValue}>{unresolvedItems.length} câu</Text>
-          <Text style={styles.summaryHint}>Làm lại cho đến khi đúng hoàn toàn.</Text>
+          <Text style={styles.summaryHint}>
+            Làm lại cho đến khi đúng hoàn toàn.
+          </Text>
         </View>
 
         {isLoading ? (
@@ -210,7 +262,9 @@ export default function ReviewScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="checkmark-circle" size={48} color="#10B981" />
             <Text style={styles.emptyTitle}>Không có câu nào cần ôn tập</Text>
-            <Text style={styles.emptyHint}>Bạn đã làm đúng hết các câu trước đó.</Text>
+            <Text style={styles.emptyHint}>
+              Bạn đã làm đúng hết các câu trước đó.
+            </Text>
           </View>
         ) : (
           <>
@@ -218,61 +272,156 @@ export default function ReviewScreen() {
               const q = it.question;
               const r = results[it.questionId];
               const isSubmitted = Object.keys(results).length > 0;
+              const qType = String(q?.type ?? "").toUpperCase();
+              const isFillInBlank = qType === "FILL_IN_BLANK";
 
               return (
                 <View key={it.id} style={styles.questionCard}>
                   <Text style={styles.questionTitle}>
                     Câu {idx + 1}: {stripHtml(q.contentHtml)}
                   </Text>
-                  {q.options.map((opt, optIndex) => {
-                    const chosen = selected[it.questionId] === optIndex;
 
-                    // Feedback sau submit
-                    const correctIndex =
-                      isNumericString(q.correctAnswer) ? Number(q.correctAnswer) : -1;
-                    const isCorrectOpt =
-                      isSubmitted && (isNumericString(q.correctAnswer) ? correctIndex === optIndex : r?.correctAnswer === opt);
-                    const isWrongChosen = isSubmitted && chosen && r?.isCorrect === false;
+                  {isFillInBlank ? (
+                    <>
+                      {!isSubmitted ? (
+                        <TextInput
+                          style={styles.fillInput}
+                          placeholder="Nhập đáp án của bạn..."
+                          value={String(selected[it.questionId] ?? "")}
+                          onChangeText={(text) => {
+                            setSelected((prev) => ({
+                              ...prev,
+                              [it.questionId]: text,
+                            }));
+                          }}
+                          editable={!isSubmitting}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                      ) : (
+                        <View style={styles.fillResultBox}>
+                          <View style={styles.fillResultRow}>
+                            <Text style={styles.fillResultLabel}>
+                              Bạn trả lời
+                            </Text>
+                            <View
+                              style={[
+                                styles.fillBadge,
+                                r?.isCorrect
+                                  ? styles.fillBadgeOk
+                                  : styles.fillBadgeFail,
+                              ]}
+                            >
+                              <Ionicons
+                                name={
+                                  r?.isCorrect
+                                    ? "checkmark-circle"
+                                    : "close-circle"
+                                }
+                                size={16}
+                                color={r?.isCorrect ? "#059669" : "#DC2626"}
+                              />
+                              <Text
+                                style={[
+                                  styles.fillBadgeText,
+                                  r?.isCorrect
+                                    ? { color: "#059669" }
+                                    : { color: "#DC2626" },
+                                ]}
+                              >
+                                {r?.isCorrect ? "Đúng" : "Sai"}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.fillResultValue}>
+                            {String(r?.selectedAnswer ?? "").trim() ||
+                              "(trống)"}
+                          </Text>
 
-                    const optionStyle = [
-                      styles.optionButton,
-                      chosen && !isSubmitted ? styles.optionSelected : null,
-                      isCorrectOpt ? styles.optionCorrect : null,
-                      isWrongChosen ? styles.optionWrong : null,
-                    ];
+                          <Text
+                            style={[styles.fillResultLabel, { marginTop: 10 }]}
+                          >
+                            Đáp án đúng
+                          </Text>
+                          <Text style={styles.fillResultValue}>
+                            {String(
+                              r?.correctAnswer ?? q.correctAnswer ?? "",
+                            ).trim()}
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    q.options.map((opt, optIndex) => {
+                      const chosen = selected[it.questionId] === optIndex;
 
-                    const optionTextStyle = [
-                      styles.optionText,
-                      chosen && !isSubmitted ? styles.optionTextSelected : null,
-                      isCorrectOpt ? styles.optionTextCorrect : null,
-                      isWrongChosen ? styles.optionTextWrong : null,
-                    ];
+                      // Feedback sau submit
+                      const correctIndex = isNumericString(q.correctAnswer)
+                        ? Number(q.correctAnswer)
+                        : -1;
+                      const isCorrectOpt =
+                        isSubmitted &&
+                        (isNumericString(q.correctAnswer)
+                          ? correctIndex === optIndex
+                          : r?.correctAnswer === opt);
+                      const isWrongChosen =
+                        isSubmitted && chosen && r?.isCorrect === false;
 
-                    return (
-                      <TouchableOpacity
-                        key={optIndex}
-                        style={optionStyle as any}
-                        onPress={() => {
-                          if (!isSubmitted) {
-                            setSelected((prev) => ({ ...prev, [it.questionId]: optIndex }));
-                          }
-                        }}
-                        disabled={isSubmitted}
-                      >
-                        <Text style={optionTextStyle as any}>{opt}</Text>
-                        {isSubmitted && isCorrectOpt && (
-                          <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                        )}
-                        {isSubmitted && isWrongChosen && (
-                          <Ionicons name="close-circle" size={18} color="#EF4444" />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
+                      const optionStyle = [
+                        styles.optionButton,
+                        chosen && !isSubmitted ? styles.optionSelected : null,
+                        isCorrectOpt ? styles.optionCorrect : null,
+                        isWrongChosen ? styles.optionWrong : null,
+                      ];
+
+                      const optionTextStyle = [
+                        styles.optionText,
+                        chosen && !isSubmitted
+                          ? styles.optionTextSelected
+                          : null,
+                        isCorrectOpt ? styles.optionTextCorrect : null,
+                        isWrongChosen ? styles.optionTextWrong : null,
+                      ];
+
+                      return (
+                        <TouchableOpacity
+                          key={optIndex}
+                          style={optionStyle as any}
+                          onPress={() => {
+                            if (!isSubmitted) {
+                              setSelected((prev) => ({
+                                ...prev,
+                                [it.questionId]: optIndex,
+                              }));
+                            }
+                          }}
+                          disabled={isSubmitted}
+                        >
+                          <Text style={optionTextStyle as any}>{opt}</Text>
+                          {isSubmitted && isCorrectOpt && (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={18}
+                              color="#10B981"
+                            />
+                          )}
+                          {isSubmitted && isWrongChosen && (
+                            <Ionicons
+                              name="close-circle"
+                              size={18}
+                              color="#EF4444"
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
 
                   {isSubmitted && r?.explanation && (
                     <View style={styles.explainBox}>
-                      <Text style={styles.explainText}>{r.explanation}</Text>
+                      <Text style={styles.explainText}>
+                        {stripHtml(r.explanation)}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -280,7 +429,10 @@ export default function ReviewScreen() {
             })}
 
             <TouchableOpacity
-              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                isSubmitting && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmitPractice}
               disabled={isSubmitting}
             >
@@ -293,7 +445,10 @@ export default function ReviewScreen() {
 
             {Object.keys(results).length > 0 && (
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: '#3B82F6', marginTop: 10 }]}
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: "#3B82F6", marginTop: 10 },
+                ]}
                 onPress={() => {
                   // Clear để làm lại vòng tiếp theo (chỉ khi còn sai)
                   setResults({});
@@ -310,53 +465,175 @@ export default function ReviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: "#F3F4F6" },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingVertical: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#111827', textAlign: 'center' },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    textAlign: "center",
+  },
 
-  summaryCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16 },
-  summaryTitle: { fontSize: 14, color: '#6B7280', marginBottom: 6, fontWeight: '600' },
-  summaryValue: { fontSize: 28, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  summaryHint: { fontSize: 13, color: '#6B7280' },
+  summaryCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+  summaryValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  summaryHint: { fontSize: 13, color: "#6B7280" },
 
-  loadingContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#4B5563', textAlign: 'center' },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#4B5563",
+    textAlign: "center",
+  },
 
-  emptyContainer: { alignItems: 'center', paddingVertical: 40 },
-  emptyTitle: { marginTop: 12, fontSize: 16, fontWeight: '700', color: '#111827' },
-  emptyHint: { marginTop: 6, fontSize: 13, color: '#6B7280', textAlign: 'center' },
+  emptyContainer: { alignItems: "center", paddingVertical: 40 },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  emptyHint: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+  },
 
-  questionCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16 },
-  questionTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  questionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  questionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 12,
+  },
 
   optionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: "#D1D5DB",
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
-  optionSelected: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
-  optionCorrect: { backgroundColor: '#D1FAE5', borderColor: '#10B981', borderWidth: 2 },
-  optionWrong: { backgroundColor: '#FEE2E2', borderColor: '#EF4444', borderWidth: 2 },
+  optionSelected: { backgroundColor: "#3B82F6", borderColor: "#3B82F6" },
+  optionCorrect: {
+    backgroundColor: "#D1FAE5",
+    borderColor: "#10B981",
+    borderWidth: 2,
+  },
+  optionWrong: {
+    backgroundColor: "#FEE2E2",
+    borderColor: "#EF4444",
+    borderWidth: 2,
+  },
 
-  optionText: { fontSize: 14, color: '#111827', flex: 1, marginRight: 10 },
-  optionTextSelected: { color: '#fff', fontWeight: '600' },
-  optionTextCorrect: { color: '#059669', fontWeight: '700' },
-  optionTextWrong: { color: '#DC2626', fontWeight: '700' },
+  optionText: { fontSize: 14, color: "#111827", flex: 1, marginRight: 10 },
+  optionTextSelected: { color: "#fff", fontWeight: "600" },
+  optionTextCorrect: { color: "#059669", fontWeight: "700" },
+  optionTextWrong: { color: "#DC2626", fontWeight: "700" },
 
-  explainBox: { marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  explainText: { fontSize: 13, color: '#4B5563', fontStyle: 'italic' },
+  explainBox: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  explainText: { fontSize: 13, color: "#4B5563", fontStyle: "italic" },
 
-  submitButton: { backgroundColor: '#10B981', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  submitButtonDisabled: { backgroundColor: '#6EE7B7' },
-  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  fillInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  fillResultBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    padding: 12,
+  },
+  fillResultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  fillResultLabel: { fontSize: 12, fontWeight: "700", color: "#111827" },
+  fillResultValue: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  fillBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  fillBadgeOk: { backgroundColor: "#D1FAE5", borderColor: "#10B981" },
+  fillBadgeFail: { backgroundColor: "#FEE2E2", borderColor: "#EF4444" },
+  fillBadgeText: { fontSize: 12, fontWeight: "900" },
+
+  submitButton: {
+    backgroundColor: "#10B981",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  submitButtonDisabled: { backgroundColor: "#6EE7B7" },
+  submitButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
-
