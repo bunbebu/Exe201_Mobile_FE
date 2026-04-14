@@ -1,7 +1,10 @@
+import { API_BASE_URL } from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
@@ -21,10 +24,81 @@ export default function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [agreeTerms, setAgreeTerms] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [gradeLevel, setGradeLevel] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [nationalIdNumber, setNationalIdNumber] = useState('');
+    const [educationLevel, setEducationLevel] = useState('');
 
-    const handleRegister = () => {
-        // Mock register - navigate to OTP screen
-        router.push('/(auth)/verify-otp');
+    const handleRegister = async () => {
+        if (!agreeTerms) {
+            Alert.alert("Lỗi", "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật để tiếp tục.");
+            return;
+        }
+
+        if (!fullName || !emailOrPhone || !password || !confirmPassword) {
+            Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin.");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp.");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const nameParts = fullName.trim().split(' ');
+            const lastName = nameParts[0] || 'Unknown';
+            const firstName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Name';
+
+            const payload = {
+                email: emailOrPhone.trim(),
+                password: password,
+                firstName: firstName,
+                lastName: lastName,
+                role: "STUDENT",
+                gradeLevel: gradeLevel.trim(),
+                phoneNumber: phoneNumber.trim(),
+                relationship: "OTHER",
+                nationalIdNumber: nationalIdNumber.trim(),
+                subjectsTaught: [
+                    "Mathematics"
+                ],
+                yearsOfExperience: 0,
+                educationLevel: educationLevel.trim()
+            };
+
+            const response = await fetch(`${API_BASE_URL}/api/v1/auth/email/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                let errMsg = "Đăng ký thất bại.";
+                try {
+                    const data = JSON.parse(text);
+                    errMsg = data.message || data.error || errMsg;
+                } catch (e) { }
+                throw new Error(errMsg);
+            }
+
+            Alert.alert(
+                "Thành công",
+                "Đã gửi 1 email xác nhận đến email của bạn, vui lòng kiểm tra và xác nhận",
+                [
+                    { text: "OK", onPress: () => router.push('/(auth)/login') }
+                ]
+            );
+        } catch (error: any) {
+            Alert.alert("Lỗi", error.message || "Có lỗi xảy ra, vui lòng thử lại.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -70,13 +144,13 @@ export default function Register() {
                                 />
                             </View>
 
-                            {/* Email or Phone */}
-                            <Text style={styles.inputLabel}>Email hoặc số điện thoại</Text>
+                            {/* Email */}
+                            <Text style={styles.inputLabel}>Email</Text>
                             <View style={styles.inputContainer}>
                                 <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Nhập email hoặc số điện thoại"
+                                    placeholder="Nhập email"
                                     placeholderTextColor="#9CA3AF"
                                     value={emailOrPhone}
                                     onChangeText={setEmailOrPhone}
@@ -84,6 +158,61 @@ export default function Register() {
                                     autoCapitalize="none"
                                 />
                             </View>
+
+                            {/* Phone Number */}
+                            <Text style={styles.inputLabel}>Số điện thoại</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="call-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nhập số điện thoại"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={phoneNumber}
+                                    onChangeText={setPhoneNumber}
+                                    keyboardType="phone-pad"
+                                />
+                            </View>
+
+                            {/* Grade Level */}
+                            <Text style={styles.inputLabel}>Lớp học (Grade Level)</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="school-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nhập lớp học (VD: 10)"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={gradeLevel}
+                                    onChangeText={setGradeLevel}
+                                />
+                            </View>
+
+                            {/* National ID Number */}
+                            <Text style={styles.inputLabel}>CCCD/CMND (National ID)</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nhập CCCD/CMND"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={nationalIdNumber}
+                                    onChangeText={setNationalIdNumber}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+
+                            {/* Education Level */}
+                            <Text style={styles.inputLabel}>Trình độ học vấn</Text>
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="book-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nhập trình độ (VD: MASTER, BACHELOR)"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={educationLevel}
+                                    onChangeText={setEducationLevel}
+                                />
+                            </View>
+
 
                             {/* Password */}
                             <Text style={styles.inputLabel}>Mật khẩu</Text>
@@ -151,11 +280,15 @@ export default function Register() {
 
                             {/* Register button */}
                             <TouchableOpacity
-                                style={[styles.registerButton, !agreeTerms && styles.registerButtonDisabled]}
+                                style={[styles.registerButton, (!agreeTerms || isLoading) && styles.registerButtonDisabled]}
                                 onPress={handleRegister}
-                                disabled={!agreeTerms}
+                                disabled={isLoading}
                             >
-                                <Text style={styles.registerButtonText}>Đăng ký</Text>
+                                {isLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.registerButtonText}>Đăng ký</Text>
+                                )}
                             </TouchableOpacity>
 
                             {/* Login link */}
