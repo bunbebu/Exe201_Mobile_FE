@@ -1,7 +1,6 @@
 import { API_BASE_URL, APP_SCHEME } from "@/config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 import React, {
   createContext,
   useCallback,
@@ -11,6 +10,27 @@ import React, {
   useState,
 } from "react";
 import { Platform } from "react-native";
+
+// Native OAuth SDKs (chuẩn chỉnh cho luồng mobile)
+// Sử dụng require động để tránh crash trên Web (requireNativeComponent is not a function)
+let GoogleSignin: any = null;
+let statusCodes: any = null;
+let LoginManager: any = null;
+let AccessToken: any = null;
+
+if (Platform.OS !== "web") {
+  try {
+    const googleModule = require("@react-native-google-signin/google-signin");
+    GoogleSignin = googleModule.GoogleSignin;
+    statusCodes = googleModule.statusCodes;
+
+    const fbModule = require("react-native-fbsdk-next");
+    LoginManager = fbModule.LoginManager;
+    AccessToken = fbModule.AccessToken;
+  } catch (error) {
+    console.warn("Native OAuth modules không load được:", error);
+  }
+}
 
 export type AuthUserRole = "STUDENT" | "TEACHER" | "PARENT" | "ADMIN" | string;
 
@@ -79,9 +99,18 @@ interface AuthContextValue extends AuthState {
   loginWithGoogle: () => Promise<void>;
   loginWithFacebook: () => Promise<void>;
   requestPasswordResetOtp: (payload: { email: string }) => Promise<void>;
-  verifyPasswordResetOtp: (payload: { email: string; otp: string }) => Promise<{ resetToken: string }>;
-  resetPasswordWithToken: (payload: { resetToken: string; newPassword: string }) => Promise<void>;
-  changePassword: (payload: { currentPassword: string; newPassword: string }) => Promise<void>;
+  verifyPasswordResetOtp: (payload: {
+    email: string;
+    otp: string;
+  }) => Promise<{ resetToken: string }>;
+  resetPasswordWithToken: (payload: {
+    resetToken: string;
+    newPassword: string;
+  }) => Promise<void>;
+  changePassword: (payload: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   hydrateFromOAuthLogin: (payload: {
     user: AuthUser;
     accessToken: string;
@@ -115,9 +144,6 @@ export const STORAGE_KEYS = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Complete WebBrowser session for OAuth
-WebBrowser.maybeCompleteAuthSession();
-
 async function readErrorMessage(res: Response): Promise<string> {
   // Backend sometimes returns JSON error envelope; sometimes plain text.
   try {
@@ -126,12 +152,7 @@ async function readErrorMessage(res: Response): Promise<string> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const json: any = JSON.parse(text);
-      return (
-        json?.message ||
-        json?.error ||
-        json?.data?.message ||
-        text
-      );
+      return json?.message || json?.error || json?.data?.message || text;
     } catch {
       return text;
     }
@@ -140,7 +161,9 @@ async function readErrorMessage(res: Response): Promise<string> {
   }
 }
 
-async function apiLoginWithEmail(payload: LoginPayload): Promise<LoginResponse> {
+async function apiLoginWithEmail(
+  payload: LoginPayload,
+): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/email/login`, {
     method: "POST",
     headers: {
@@ -151,12 +174,15 @@ async function apiLoginWithEmail(payload: LoginPayload): Promise<LoginResponse> 
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+    throw new Error(
+      text || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
+    );
   }
 
   // We trust backend schema from swagger, but keep it flexible
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const data: any = await res.json();
+  const raw: any = await res.json();
+  const data = raw?.data ?? raw;
 
   return {
     accessToken: data.accessToken,
@@ -171,7 +197,9 @@ async function apiLoginWithEmail(payload: LoginPayload): Promise<LoginResponse> 
   };
 }
 
-async function apiRequestPasswordResetOtp(payload: { email: string }): Promise<void> {
+async function apiRequestPasswordResetOtp(payload: {
+  email: string;
+}): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/forgot`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -202,7 +230,8 @@ async function apiVerifyPasswordResetOtp(payload: {
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const raw: any = await res.json();
-  const resetToken: string | undefined = raw?.resetToken ?? raw?.data?.resetToken;
+  const resetToken: string | undefined =
+    raw?.resetToken ?? raw?.data?.resetToken;
   if (!resetToken) {
     throw new Error("Không nhận được reset token từ hệ thống.");
   }
@@ -279,13 +308,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const loginWithEmail = useCallback(async (payload: LoginPayload) => {
-    console.log('[AUTH] loginWithEmail called');
+    console.log("[AUTH] loginWithEmail called");
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      console.log('[AUTH] Calling API login...');
+      console.log("[AUTH] Calling API login...");
       const res = await apiLoginWithEmail(payload);
-      console.log('[AUTH] API login response received');
-      console.log('[AUTH] User role from API:', res.user.role);
+      console.log("[AUTH] API login response received");
+      console.log("[AUTH] User role from API:", res.user.role);
 
       // Only allow student role for this mobile flow
       // if (res.user.role !== "STUDENT") {
@@ -293,7 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       //   throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
       // }
 
-      console.log('[AUTH] User role is STUDENT, proceeding with login');
+      console.log("[AUTH] User role is STUDENT, proceeding with login");
 
       const tokens: AuthTokens = {
         accessToken: res.accessToken,
@@ -301,16 +330,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         sessionId: res.sessionId,
       };
 
-      console.log('[AUTH] Saving tokens and user to AsyncStorage...');
+      console.log("[AUTH] Saving tokens and user to AsyncStorage...");
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
         AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user)),
       ]);
-      console.log('[AUTH] Tokens and user saved to AsyncStorage');
+      console.log("[AUTH] Tokens and user saved to AsyncStorage");
 
       // Check onboarding status from storage
-      const onboardingCompleted = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
-      console.log('[AUTH] Onboarding completed from storage:', onboardingCompleted);
+      const onboardingCompleted = await AsyncStorage.getItem(
+        STORAGE_KEYS.ONBOARDING_COMPLETED,
+      );
+      console.log(
+        "[AUTH] Onboarding completed from storage:",
+        onboardingCompleted,
+      );
 
       setState((prev) => {
         const newState = {
@@ -321,20 +355,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           isLoading: false,
           onboardingCompleted: onboardingCompleted === "true",
         };
-        console.log('[AUTH] State updated:', {
+        console.log("[AUTH] State updated:", {
           isAuthenticated: newState.isAuthenticated,
           onboardingCompleted: newState.onboardingCompleted,
           isLoading: newState.isLoading,
           hasUser: !!newState.user,
           hasTokens: !!newState.tokens,
         });
-        console.log('[AUTH] Full state:', JSON.stringify(newState, null, 2));
+        console.log("[AUTH] Full state:", JSON.stringify(newState, null, 2));
         return newState;
       });
 
-      console.log('[AUTH] loginWithEmail completed successfully');
+      console.log("[AUTH] loginWithEmail completed successfully");
     } catch (error) {
-      console.error('[AUTH] Error in loginWithEmail:', error);
+      console.error("[AUTH] Error in loginWithEmail:", error);
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
@@ -362,9 +396,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const requestPasswordResetOtp = useCallback(async (payload: { email: string }) => {
-    await apiRequestPasswordResetOtp({ email: payload.email.trim() });
-  }, []);
+  const requestPasswordResetOtp = useCallback(
+    async (payload: { email: string }) => {
+      await apiRequestPasswordResetOtp({ email: payload.email.trim() });
+    },
+    [],
+  );
 
   const verifyPasswordResetOtp = useCallback(
     async (payload: { email: string; otp: string }) => {
@@ -373,7 +410,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         otp: payload.otp.trim(),
       });
     },
-    []
+    [],
   );
 
   const resetPasswordWithToken = useCallback(
@@ -385,7 +422,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Step 4 (re-sync): backend revokes sessions; locally, ensure we clear any cached auth.
       await logout();
     },
-    [logout]
+    [logout],
   );
 
   const changePassword = useCallback(
@@ -415,7 +452,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Backend revokes sessions; force local logout so user must re-login.
       await logout();
     },
-    [logout, state.tokens?.accessToken]
+    [logout, state.tokens?.accessToken],
   );
 
   const hydrateFromOAuthLogin = useCallback(
@@ -440,15 +477,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Lưu vào AsyncStorage
         await AsyncStorage.setItem(
           STORAGE_KEYS.ONBOARDING_COMPLETED,
-          onboardingCompleted ? "true" : "false"
+          onboardingCompleted ? "true" : "false",
         );
-        console.log('[AUTH] hydrateFromOAuthLogin - onboardingCompleted from payload:', onboardingCompleted);
+        console.log(
+          "[AUTH] hydrateFromOAuthLogin - onboardingCompleted from payload:",
+          onboardingCompleted,
+        );
       } else {
         const onboardingCompletedStr = await AsyncStorage.getItem(
-          STORAGE_KEYS.ONBOARDING_COMPLETED
+          STORAGE_KEYS.ONBOARDING_COMPLETED,
         );
         onboardingCompleted = onboardingCompletedStr === "true";
-        console.log('[AUTH] hydrateFromOAuthLogin - onboardingCompleted from storage:', onboardingCompleted);
+        console.log(
+          "[AUTH] hydrateFromOAuthLogin - onboardingCompleted from storage:",
+          onboardingCompleted,
+        );
       }
 
       await Promise.all([
@@ -465,23 +508,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         onboardingCompleted,
       }));
     },
-    []
+    [],
   );
 
   const setOnboardingGoals = useCallback((goals: LearningGoal[]) => {
     setState((prev) => ({ ...prev, onboardingGoals: goals }));
-    AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_GOALS, JSON.stringify(goals)).catch(
-      () => undefined
-    );
+    AsyncStorage.setItem(
+      STORAGE_KEYS.ONBOARDING_GOALS,
+      JSON.stringify(goals),
+    ).catch(() => undefined);
   }, []);
 
   const setOnboardingGrade = useCallback((grade: number | null) => {
     setState((prev) => ({ ...prev, onboardingGrade: grade }));
     if (grade == null) {
-      AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_GRADE).catch(() => undefined);
+      AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_GRADE).catch(
+        () => undefined,
+      );
     } else {
       AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_GRADE, String(grade)).catch(
-        () => undefined
+        () => undefined,
       );
     }
   }, []);
@@ -508,10 +554,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const userData: any = await userRes.json();
-      if (userData.role !== "STUDENT") {
-        throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
-      }
+      const rawUser: any = await userRes.json();
+      const userData = rawUser?.data ?? rawUser;
 
       const tokens: AuthTokens = {
         accessToken: payload.accessToken,
@@ -521,7 +565,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const onboardingFromApi = userData?.studentProfile?.onboardingCompleted;
       const onboardingFromStorage = await AsyncStorage.getItem(
-        STORAGE_KEYS.ONBOARDING_COMPLETED
+        STORAGE_KEYS.ONBOARDING_COMPLETED,
       );
       const onboardingCompleted =
         typeof onboardingFromApi === "boolean"
@@ -549,119 +593,232 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         isLoading: false,
       }));
     },
-    []
+    [],
+  );
+
+  /**
+   * Xử lý response từ 2 endpoint mobile-signin (Google + Facebook).
+   * Response shapes:
+   *   A) Returning user : { needsProfileCompletion: false, user, accessToken, refreshToken, sessionId }
+   *   B) New user       : { needsProfileCompletion: true,  completionToken }
+   *
+   * Returns { kind: 'returning' | 'new' }
+   */
+  const processMobileSigninResponse = useCallback(
+    async (data: any): Promise<{ kind: "returning" | "new" }> => {
+      if (data.needsProfileCompletion === true && data.completionToken) {
+        // Case B: new user — lưu completionToken, chưa đăng nhập
+        console.log("[AUTH] mobile-signin: new user → saving completionToken");
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
+          data.completionToken,
+        );
+        await AsyncStorage.removeItem(STORAGE_KEYS.TOKENS);
+        await AsyncStorage.removeItem(STORAGE_KEYS.USER);
+        setState((prev) => ({ ...prev, isLoading: false }));
+        return { kind: "new" };
+      }
+
+      if (
+        data.needsProfileCompletion === false &&
+        data.accessToken &&
+        data.user
+      ) {
+        // Case A: returning user — hydrate auth state
+        console.log("[AUTH] mobile-signin: returning user → hydrating state");
+        const tokens: AuthTokens = {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken ?? "",
+          sessionId: data.sessionId,
+        };
+        const user: AuthUser = {
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.role,
+          avatarUrl: data.user.avatarUrl ?? null,
+        };
+        const onboardingFromStorage = await AsyncStorage.getItem(
+          STORAGE_KEYS.ONBOARDING_COMPLETED,
+        );
+        const onboardingCompleted = onboardingFromStorage === "true";
+        await Promise.all([
+          AsyncStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(tokens)),
+          AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user)),
+          // Xóa completionToken thừa nếu còn sót
+          AsyncStorage.removeItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN),
+        ]);
+        setState((prev) => ({
+          ...prev,
+          user,
+          tokens,
+          isAuthenticated: true,
+          onboardingCompleted,
+          isLoading: false,
+        }));
+        return { kind: "returning" };
+      }
+
+      // Unexpected response format
+      throw new Error("Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.");
+    },
+    [],
   );
 
   const loginWithGoogle = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      if (Platform.OS === "web") {
-        const callbackUrl = `${window.location.origin}/oauth/google-callback-web`;
-        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
-          callbackUrl
-        )}`;
-        window.location.href = loginUrl;
-        return;
+      // ── Step 1: Cấu hình Google Sign-In ────────────────────────────────────────
+      const webClientId = Constants.expoConfig?.extra?.googleWebClientId;
+      if (!webClientId) {
+        throw new Error(
+          "Chưa cấu hình Google Client ID. Vui lòng liên hệ quản trị viên.",
+        );
       }
+      GoogleSignin.configure({ webClientId, offlineAccess: false });
 
-      const redirectUri = Linking.createURL("oauth-callback", {
-        scheme: APP_SCHEME,
-      });
-      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/login?redirectUri=${encodeURIComponent(
-        redirectUri
-      )}`;
+      // ── Step 2: Đăng xuất phiên cũ (tránh cache token cũ) ────────────────────
+      await GoogleSignin.signOut().catch(() => undefined);
 
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
-
-      if (result.type === "success" && result.url) {
-        const url = new URL(result.url);
-        const accessToken =
-          url.searchParams.get("accessToken") ?? url.searchParams.get("token");
-        const refreshToken = url.searchParams.get("refreshToken") ?? "";
-        const sessionId = url.searchParams.get("sessionId") ?? undefined;
-        const completionToken = url.searchParams.get("completionToken");
-
-        if (completionToken && !accessToken) {
-          await AsyncStorage.setItem(
-            STORAGE_KEYS.OAUTH_COMPLETION_TOKEN,
-            completionToken
-          );
+      // ── Step 3: Trigger popup đăng nhập Google (Native) ────────────────────────
+      console.log("[AUTH] loginWithGoogle: calling GoogleSignin.signIn()");
+      let userInfo: any;
+      try {
+        userInfo = await GoogleSignin.signIn();
+      } catch (signInErr: any) {
+        if (signInErr.code === statusCodes.SIGN_IN_CANCELLED) {
           setState((prev) => ({ ...prev, isLoading: false }));
-          return;
+          throw new Error("Đăng nhập Google bị hủy.");
         }
-
-        if (accessToken) {
-          await hydrateOAuthAccessToken({ accessToken, refreshToken, sessionId });
-          return;
+        if (signInErr.code === statusCodes.IN_PROGRESS) {
+          setState((prev) => ({ ...prev, isLoading: false }));
+          throw new Error("Đang xử lý đăng nhập Google. Vui lòng đợi.");
         }
-
-        {
-          throw new Error("Không nhận được token từ OAuth callback.");
+        if (signInErr.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          setState((prev) => ({ ...prev, isLoading: false }));
+          throw new Error(
+            "Google Play Services chưa sẵn sàng. Vui lòng cập nhật Google Play.",
+          );
         }
-      } else if (result.type === "cancel") {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        throw new Error("Đăng nhập bị hủy.");
-      } else {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        throw new Error("Đăng nhập thất bại. Vui lòng thử lại.");
+        throw signInErr;
       }
+
+      // ── Step 4: Lấy idToken từ kết quả sign-in ────────────────────────────────
+      const idToken: string | null =
+        userInfo?.data?.idToken ?? userInfo?.idToken ?? null;
+
+      if (!idToken) {
+        throw new Error("Không lấy được Google ID Token. Vui lòng thử lại.");
+      }
+
+      console.log(
+        "[AUTH] loginWithGoogle: got idToken, calling backend mobile-signin...",
+      );
+
+      // ── Step 5: Gửi idToken cho Backend ─────────────────────────────────
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/auth/oauth/google/mobile-signin`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            idToken,
+            role: "STUDENT",
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        throw new Error(
+          msg ||
+            "Đăng nhập Google thất bại. Token không hợp lệ hoặc đã hết hạn.",
+        );
+      }
+
+      const raw: any = await res.json();
+      const data = raw?.data ?? raw;
+
+      // ── Step 6: Xử lý response (new user / returning user) ───────────────────
+      const outcome = await processMobileSigninResponse(data);
+      console.log("[AUTH] loginWithGoogle: outcome =", outcome.kind);
     } catch (error) {
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
-  }, [hydrateOAuthAccessToken]);
+  }, [processMobileSigninResponse]);
 
   const loginWithFacebook = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      if (Platform.OS === "web") {
-        const callbackUrl = `${window.location.origin}/oauth/facebook-callback-web`;
-        const loginUrl = `${API_BASE_URL}/api/v1/auth/oauth/facebook/login?redirect_uri=${encodeURIComponent(callbackUrl)}`;
-        window.location.href = loginUrl;
-        return;
+      // ── Step 1: Đăng xuất phiên Facebook cũ ─────────────────────────────────
+      LoginManager.logOut();
+
+      // ── Step 2: Trigger popup đăng nhập Facebook (Native) ────────────────────
+      console.log(
+        "[AUTH] loginWithFacebook: calling LoginManager.logInWithPermissions()",
+      );
+      const loginResult = await LoginManager.logInWithPermissions([
+        "public_profile",
+        "email",
+      ]);
+
+      if (loginResult.isCancelled) {
+        setState((prev) => ({ ...prev, isLoading: false }));
+        throw new Error("Đăng nhập Facebook bị hủy.");
       }
 
-      // Get OAuth URL from backend
-      const redirectUri = Linking.createURL("oauth-callback", { scheme: APP_SCHEME });
-      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/facebook/login?redirect_uri=${encodeURIComponent(redirectUri)}`;
+      // ── Step 3: Lấy Access Token ─────────────────────────────────────────────
+      const tokenData = await AccessToken.getCurrentAccessToken();
+      if (!tokenData?.accessToken || !tokenData?.userID) {
+        throw new Error(
+          "Không lấy được Facebook Access Token. Vui lòng thử lại.",
+        );
+      }
 
-      // Open browser for OAuth
-      const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectUri);
+      const { accessToken: fbToken, userID } = tokenData;
+      console.log(
+        "[AUTH] loginWithFacebook: got accessToken, calling backend mobile-signin...",
+      );
 
-      if (result.type === "success" && result.url) {
-        const url = new URL(result.url);
-        const accessToken =
-          url.searchParams.get("accessToken") ?? url.searchParams.get("token");
-        const refreshToken = url.searchParams.get("refreshToken") ?? "";
-        const sessionId = url.searchParams.get("sessionId") ?? undefined;
-        const completionToken = url.searchParams.get("completionToken");
-
-        if (completionToken && !accessToken) {
-          await AsyncStorage.setItem(STORAGE_KEYS.OAUTH_COMPLETION_TOKEN, completionToken);
-          setState((prev) => ({ ...prev, isLoading: false }));
-          return;
-        }
-
-        if (accessToken) {
-          await hydrateOAuthAccessToken({ accessToken, refreshToken, sessionId });
-          return;
-        }
-
+      // ── Step 4: Gửi Access Token cho Backend ─────────────────────────────────
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/auth/oauth/facebook/mobile-signin`,
         {
-          throw new Error("Không nhận được token từ OAuth callback.");
-        }
-      } else if (result.type === "cancel") {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        throw new Error("Đăng nhập bị hủy.");
-      } else {
-        setState((prev) => ({ ...prev, isLoading: false }));
-        throw new Error("Đăng nhập thất bại. Vui lòng thử lại.");
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            accessToken: fbToken,
+            userId: userID,
+            role: "STUDENT",
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        throw new Error(
+          msg ||
+            "Đăng nhập Facebook thất bại. Token không hợp lệ hoặc đã hết hạn.",
+        );
       }
+
+      const raw: any = await res.json();
+      const data = raw?.data ?? raw;
+
+      // ── Step 5: Xử lý response (new user / returning user) ───────────────────
+      const outcome = await processMobileSigninResponse(data);
+      console.log("[AUTH] loginWithFacebook: outcome =", outcome.kind);
     } catch (error) {
       setState((prev) => ({ ...prev, isLoading: false }));
       throw error;
     }
-  }, [hydrateOAuthAccessToken]);
+  }, [processMobileSigninResponse]);
 
   const completeOAuthProfile = useCallback(
     async (payload: {
@@ -675,21 +832,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }) => {
       setState((prev) => ({ ...prev, isLoading: true }));
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/auth/oauth/complete-profile`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const res = await fetch(
+          `${API_BASE_URL}/api/v1/auth/oauth/complete-profile`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              completionToken: payload.completionToken,
+              role: payload.role,
+              firstName: payload.firstName,
+              lastName: payload.lastName,
+              phoneNumber: payload.phoneNumber,
+              // For student, we might need to send gradeLevel and goals
+              // Check backend API schema to confirm
+            }),
           },
-          body: JSON.stringify({
-            completionToken: payload.completionToken,
-            role: payload.role,
-            firstName: payload.firstName,
-            lastName: payload.lastName,
-            phoneNumber: payload.phoneNumber,
-            // For student, we might need to send gradeLevel and goals
-            // Check backend API schema to confirm
-          }),
-        });
+        );
 
         if (!res.ok) {
           const text = await res.text().catch(() => "");
@@ -712,7 +872,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
           // Only allow student role
           if (data.user.role !== "STUDENT") {
-            throw new Error("Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).");
+            throw new Error(
+              "Ứng dụng hiện chỉ hỗ trợ tài khoản Học sinh (Student).",
+            );
           }
 
           await Promise.all([
@@ -742,16 +904,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         } else if (data.pendingApproval === true) {
           // Teacher/Parent roles need approval
-          throw new Error("Tài khoản của bạn đang chờ phê duyệt từ quản trị viên.");
+          throw new Error(
+            "Tài khoản của bạn đang chờ phê duyệt từ quản trị viên.",
+          );
         } else {
-          throw new Error("Không nhận được thông tin đăng nhập sau khi hoàn tất hồ sơ.");
+          throw new Error(
+            "Không nhận được thông tin đăng nhập sau khi hoàn tất hồ sơ.",
+          );
         }
       } catch (error) {
         setState((prev) => ({ ...prev, isLoading: false }));
         throw error;
       }
     },
-    [setOnboardingGrade, setOnboardingGoals]
+    [setOnboardingGrade, setOnboardingGoals],
   );
 
   const value: AuthContextValue = useMemo(
@@ -786,7 +952,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setOnboardingGoals,
       setOnboardingGrade,
       markOnboardingCompleted,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -846,4 +1012,3 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
-

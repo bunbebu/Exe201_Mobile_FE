@@ -31,8 +31,10 @@ export default function Register() {
     const [educationLevel, setEducationLevel] = useState('');
     const [registerSuccess, setRegisterSuccess] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleRegister = async () => {
+        setErrorMessage('');
         if (!agreeTerms) {
             Alert.alert("Lỗi", "Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật để tiếp tục.");
             return;
@@ -49,6 +51,7 @@ export default function Register() {
         }
 
         try {
+            console.log("[REGISTER] Starting handleRegister...");
             setIsLoading(true);
             const nameParts = fullName.trim().split(' ');
             const lastName = nameParts[0] || 'Unknown';
@@ -71,6 +74,7 @@ export default function Register() {
                 educationLevel: educationLevel.trim()
             };
 
+            console.log("[REGISTER] Payload:", JSON.stringify(payload));
             const response = await fetch(`${API_BASE_URL}/api/v1/auth/email/register`, {
                 method: "POST",
                 headers: {
@@ -79,24 +83,44 @@ export default function Register() {
                 body: JSON.stringify(payload),
             });
 
+            console.log("[REGISTER] Response status:", response.status, "ok:", response.ok);
+
             if (!response.ok) {
-                const text = await response.text();
+                const text = await response.text().catch(() => "");
+                console.error("[REGISTER] API Error raw response:", text);
+
                 let errMsg = "Đăng ký thất bại.";
                 try {
                     const data = JSON.parse(text);
-                    errMsg = data.message || data.error || errMsg;
-                } catch (e) { }
+                    const rawMessage = data.message || data.error || data.data?.message;
+                    console.log("[REGISTER] Parsed rawMessage:", rawMessage);
+
+                    if (Array.isArray(rawMessage)) {
+                        errMsg = rawMessage.join("\n");
+                    } else if (rawMessage) {
+                        errMsg = String(rawMessage);
+                    }
+                } catch (e) {
+                    console.error("[REGISTER] JSON parse error:", e);
+                    if (text && text.length < 200) errMsg = text;
+                }
+                console.log("[REGISTER] Final error message to show:", errMsg);
                 throw new Error(errMsg);
             }
 
             const responseData = await response.json();
+            console.log("[REGISTER] Success response:", responseData);
             const apiMessage = responseData?.message || "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.";
             setSuccessMessage(apiMessage);
             setRegisterSuccess(true);
         } catch (error: any) {
-            Alert.alert("Lỗi", error.message || "Có lỗi xảy ra, vui lòng thử lại.");
+            console.error("[REGISTER] Caught error:", error);
+            const msg = error.message || "Có lỗi xảy ra, vui lòng thử lại.";
+            setErrorMessage(msg);
+            Alert.alert("Lỗi", msg);
         } finally {
             setIsLoading(false);
+            console.log("[REGISTER] handleRegister finished.");
         }
     };
 
@@ -305,6 +329,14 @@ export default function Register() {
                                 </Text>
                             </TouchableOpacity>
 
+                            {/* Error message */}
+                            {errorMessage ? (
+                                <View style={styles.errorContainer}>
+                                    <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
+                                    <Text style={styles.errorText}>{errorMessage}</Text>
+                                </View>
+                            ) : null}
+
                             {/* Register button */}
                             <TouchableOpacity
                                 style={[styles.registerButton, (!agreeTerms || isLoading) && styles.registerButtonDisabled]}
@@ -443,6 +475,22 @@ const styles = StyleSheet.create({
     },
     linkText: {
         color: '#3B82F6',
+        fontWeight: '500',
+    },
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF2F2',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 14,
+        marginLeft: 8,
         fontWeight: '500',
     },
     registerButton: {

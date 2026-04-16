@@ -1,3 +1,8 @@
+const FACEBOOK_APP_ID = "1634051867256995";
+const FACEBOOK_CLIENT_TOKEN = ""; // Điền Client Token của bạn vào đây nếu cần thiết
+const API_BASE_URL = "https://rest-api-edu-tech-with-nestjs-mongo.vercel.app";
+const GOOGLE_WEB_CLIENT_ID = "464233585984-02gol93vhihdrfrt8ci1uucf5e3g26d6.apps.googleusercontent.com";
+
 export default {
   expo: {
     name: "mobile-app",
@@ -10,10 +15,9 @@ export default {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.mobileapp.exe201",
     },
     android: {
-      // Expo yêu cầu bắt buộc phải có android.package để build/run Android.
-      // Bạn có thể đổi theo package name mong muốn miễn là consistent với cấu hình deep link.
       package: "com.mobileapp.exe201",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
@@ -40,12 +44,29 @@ export default {
           },
         },
       ],
+      // Google Sign-In: Plugin chỉ cần cho iOS (URL scheme).
+      // Android hoạt động không cần plugin — không thêm vào đây để tránh lỗi build.
+      // Facebook native SDK
+      [
+        "react-native-fbsdk-next",
+        {
+          appID: FACEBOOK_APP_ID,
+          clientToken: FACEBOOK_CLIENT_TOKEN,
+          displayName: "BachKhoaViet",
+          scheme: `fb${FACEBOOK_APP_ID}`,
+          advertiserIDCollectionEnabled: false,
+          autoLogAppEventsEnabled: false,
+          isAutoInitEnabled: true,
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
     },
     extra: {
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "https://rest-api-edu-tech-with-nestjs-mongo.vercel.app",
+      apiBaseUrl: API_BASE_URL,
+      googleWebClientId: GOOGLE_WEB_CLIENT_ID,
+      facebookAppId: FACEBOOK_APP_ID,
       eas: {
         projectId: "c531fb89-f089-4b92-bd10-3e7728336cb1",
       },

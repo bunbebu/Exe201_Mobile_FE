@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -12,11 +13,10 @@ import {
     TextInput,
     TouchableOpacity,
     View,
-    ActivityIndicator,
 } from 'react-native';
 
-import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 
 type GenderType = 'male' | 'female';
 
@@ -32,7 +32,7 @@ export default function UpdateProfile() {
     const formatDateInput = (text: string): string => {
         // Chỉ lấy số, bỏ tất cả ký tự khác
         const numbers = text.replace(/\D/g, '');
-        
+
         // Format: YYYY-MM-DD
         if (numbers.length === 0) {
             return '';
@@ -51,11 +51,11 @@ export default function UpdateProfile() {
         if (!dateRegex.test(dateString)) {
             return false;
         }
-        
+
         // Kiểm tra date có hợp lệ không
         const date = new Date(dateString);
         const [year, month, day] = dateString.split('-').map(Number);
-        
+
         return (
             date instanceof Date &&
             !isNaN(date.getTime()) &&
@@ -76,11 +76,6 @@ export default function UpdateProfile() {
             return;
         }
 
-        if (!tokens?.accessToken) {
-            Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.');
-            router.replace('/(auth)/login');
-            return;
-        }
 
         if (!onboardingGrade) {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin khối lớp. Vui lòng quay lại chọn khối lớp.');
@@ -261,7 +256,7 @@ export default function UpdateProfile() {
                         style={[
                             styles.continueButton,
                             (!fullName.trim() || !schoolName.trim() || isSubmitting) &&
-                                styles.continueButtonDisabled,
+                            styles.continueButtonDisabled,
                         ]}
                         onPress={handleContinue}
                         disabled={!fullName.trim() || !schoolName.trim() || isSubmitting}

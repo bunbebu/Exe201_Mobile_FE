@@ -199,25 +199,24 @@ export default function Login() {
                                         console.log('[LOGIN] Google login button pressed');
                                         await loginWithGoogle();
                                         console.log('[LOGIN] Google login completed');
-                                        
-                                        // Check completion token (lần đầu đăng ký)
+
+                                        // AuthContext đã hydrate state, kiểm tra completionToken để routing
                                         const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
-                                        console.log('[LOGIN] Google - Completion token:', completionToken);
                                         if (completionToken) {
-                                            console.log('[LOGIN] Google - Redirecting to complete-oauth');
+                                            // New user: cần điền thêm thông tin profile
+                                            console.log('[LOGIN] Google → new user, redirecting to complete-oauth');
                                             router.replace('/(auth)/complete-oauth');
-                                            return;
+                                        } else {
+                                            // Returning user: đã auth xong, về trang chính
+                                            console.log('[LOGIN] Google → returning user, redirecting to /');
+                                            router.replace('/');
                                         }
-                                        
-                                        // Redirect về index sau khi login Google thành công
-                                        console.log('[LOGIN] Google - Redirecting to /');
-                                        router.replace('/');
                                     } catch (error: any) {
                                         console.error('[LOGIN] Google login error:', error);
-                                        Alert.alert(
-                                            'Đăng nhập thất bại',
-                                            error?.message ?? 'Đăng nhập với Google thất bại. Vui lòng thử lại.'
-                                        );
+                                        const msg: string = error?.message ?? '';
+                                        // Bỏ qua lỗi user tự hủy
+                                        if (msg.includes('bị hủy') || msg.toLowerCase().includes('cancel')) return;
+                                        Alert.alert('Đăng nhập thất bại', msg || 'Đăng nhập với Google thất bại. Vui lòng thử lại.');
                                     }
                                 }}
                                 disabled={isLoading}
@@ -232,25 +231,24 @@ export default function Login() {
                                         console.log('[LOGIN] Facebook login button pressed');
                                         await loginWithFacebook();
                                         console.log('[LOGIN] Facebook login completed');
-                                        
-                                        // Check completion token (lần đầu đăng ký)
+
+                                        // AuthContext đã hydrate state, kiểm tra completionToken để routing
                                         const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
-                                        console.log('[LOGIN] Facebook - Completion token:', completionToken);
                                         if (completionToken) {
-                                            console.log('[LOGIN] Facebook - Redirecting to complete-oauth');
+                                            // New user: cần điền thêm thông tin profile
+                                            console.log('[LOGIN] Facebook → new user, redirecting to complete-oauth');
                                             router.replace('/(auth)/complete-oauth');
-                                            return;
+                                        } else {
+                                            // Returning user: đã auth xong, về trang chính
+                                            console.log('[LOGIN] Facebook → returning user, redirecting to /');
+                                            router.replace('/');
                                         }
-                                        
-                                        // Redirect về index sau khi login Facebook thành công
-                                        console.log('[LOGIN] Facebook - Redirecting to /');
-                                        router.replace('/');
                                     } catch (error: any) {
                                         console.error('[LOGIN] Facebook login error:', error);
-                                        Alert.alert(
-                                            'Đăng nhập thất bại',
-                                            error?.message ?? 'Đăng nhập với Facebook thất bại. Vui lòng thử lại.'
-                                        );
+                                        const msg: string = error?.message ?? '';
+                                        // Bỏ qua lỗi user tự hủy
+                                        if (msg.includes('bị hủy') || msg.toLowerCase().includes('cancel')) return;
+                                        Alert.alert('Đăng nhập thất bại', msg || 'Đăng nhập với Facebook thất bại. Vui lòng thử lại.');
                                     }
                                 }}
                                 disabled={isLoading}

@@ -2,18 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
-    Alert,
-    ActivityIndicator,
 } from 'react-native';
 
-import { useAuth } from '@/context/AuthContext';
 import { API_BASE_URL } from '@/config/api';
+import { useAuth } from '@/context/AuthContext';
 
 type GradeType = 9 | 10 | 11 | 12;
 
@@ -37,11 +37,7 @@ export default function SelectGrade() {
 
     const handleContinue = async () => {
         if (!selectedGrade) return;
-        if (!tokens?.accessToken) {
-            Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.');
-            router.replace('/(auth)/login');
-            return;
-        }
+
 
         setIsSubmitting(true);
         try {
