@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -10,9 +10,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { useColors } from '@/hooks/use-colors';
+import { useAuth } from "@/context/AuthContext";
+import { useColors } from "@/hooks/use-colors";
+import { API_BASE_URL } from "@/config/api";
 
 interface ApiImage {
   url?: string;
@@ -27,9 +29,10 @@ interface CourseItem {
 
 export default function SubjectCoursesScreen() {
   const colors = useColors();
+  const { tokens } = useAuth();
   const params = useLocalSearchParams();
   const subjectId = params.id as string | undefined;
-  const subjectName = (params.name as string) || 'Môn học';
+  const subjectName = (params.name as string) || "Môn học";
 
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,25 +44,30 @@ export default function SubjectCoursesScreen() {
     const fetchCoursesBySubject = async () => {
       if (!subjectId) {
         setIsLoading(false);
-        setErrorMessage('Thiếu subjectId');
+        setErrorMessage("Thiếu subjectId");
         return;
       }
 
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const apiHost = 'https://edutech-backend-y2zc.onrender.com';
         const filters = encodeURIComponent(
           JSON.stringify({
-            status: 'Published',
+            status: "Published",
             subjectId,
-          })
+          }),
         );
-        const url = `${apiHost}/api/v1/courses?page=1&limit=10&filters=${filters}`;
-        const res = await fetch(url);
+        const url = `${API_BASE_URL}/api/v1/courses?page=1&limit=10&filters=${filters}`;
+
+        const authHeaders: any = {};
+        if (tokens?.accessToken) {
+          authHeaders["Authorization"] = `Bearer ${tokens.accessToken}`;
+        }
+
+        const res = await fetch(url, { headers: authHeaders });
 
         if (!res.ok) {
-          throw new Error('Không thể tải danh sách khóa học theo môn học');
+          throw new Error("Không thể tải danh sách khóa học theo môn học");
         }
 
         const json = await res.json();
@@ -69,7 +77,9 @@ export default function SubjectCoursesScreen() {
         setCourses(items);
       } catch (error) {
         if (!isMounted) return;
-        setErrorMessage(error instanceof Error ? error.message : 'Đã có lỗi xảy ra');
+        setErrorMessage(
+          error instanceof Error ? error.message : "Đã có lỗi xảy ra",
+        );
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -84,12 +94,20 @@ export default function SubjectCoursesScreen() {
   }, [subjectId]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.headerTitle, { color: colors.text }]}
+          numberOfLines={1}
+        >
           {subjectName}
         </Text>
         <View style={styles.backButton} />
@@ -98,7 +116,9 @@ export default function SubjectCoursesScreen() {
       {isLoading ? (
         <View style={styles.centeredState}>
           <ActivityIndicator size="small" color="#3B82F6" />
-          <Text style={[styles.stateText, { color: colors.mutedText }]}>Đang tải khóa học...</Text>
+          <Text style={[styles.stateText, { color: colors.mutedText }]}>
+            Đang tải khóa học...
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -111,7 +131,7 @@ export default function SubjectCoursesScreen() {
               style={[styles.courseCard, { backgroundColor: colors.cardBg }]}
               onPress={() =>
                 router.push({
-                  pathname: '/course/[id]',
+                  pathname: "/course/[id]",
                   params: {
                     id: course.id,
                     title: course.title,
@@ -119,7 +139,12 @@ export default function SubjectCoursesScreen() {
                 } as any)
               }
             >
-              <View style={[styles.courseImage, { backgroundColor: colors.inputBg }]}>
+              <View
+                style={[
+                  styles.courseImage,
+                  { backgroundColor: colors.inputBg },
+                ]}
+              >
                 {course.thumbnailUrl?.url ? (
                   <Image
                     source={{ uri: course.thumbnailUrl.url }}
@@ -131,14 +156,20 @@ export default function SubjectCoursesScreen() {
                 )}
               </View>
               <View style={styles.courseInfo}>
-                <Text style={[styles.courseTitle, { color: colors.text }]} numberOfLines={2}>
+                <Text
+                  style={[styles.courseTitle, { color: colors.text }]}
+                  numberOfLines={2}
+                >
                   {course.title}
                 </Text>
                 <Text
-                  style={[styles.courseDescription, { color: colors.secondaryText }]}
+                  style={[
+                    styles.courseDescription,
+                    { color: colors.secondaryText },
+                  ]}
                   numberOfLines={2}
                 >
-                  {course.description || 'Khóa học trong danh mục này'}
+                  {course.description || "Khóa học trong danh mục này"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -150,7 +181,9 @@ export default function SubjectCoursesScreen() {
             </Text>
           ) : null}
           {errorMessage ? (
-            <Text style={[styles.stateText, { color: '#EF4444' }]}>{errorMessage}</Text>
+            <Text style={[styles.stateText, { color: "#EF4444" }]}>
+              {errorMessage}
+            </Text>
           ) : null}
         </ScrollView>
       )}
@@ -163,40 +196,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   backButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     flex: 1,
     fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   centeredState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
   },
   stateText: {
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 24,
   },
   courseCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
@@ -205,22 +238,22 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   courseThumb: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   courseInfo: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   courseTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   courseDescription: {

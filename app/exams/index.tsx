@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,10 +10,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { useAuth } from '@/context/AuthContext';
-import { useColors } from '@/hooks/use-colors';
+import { useAuth } from "@/context/AuthContext";
+import { useColors } from "@/hooks/use-colors";
+import { API_BASE_URL } from "@/config/api";
 
 interface ApiImage {
   url?: string;
@@ -35,7 +36,6 @@ interface ExamsResponseData {
 }
 
 const PAGE_SIZE = 10;
-const API_HOST = 'https://edutech-backend-y2zc.onrender.com';
 
 export default function ExamsListScreen() {
   const colors = useColors();
@@ -58,7 +58,7 @@ export default function ExamsListScreen() {
       setErrorMessage(null);
 
       try {
-        const url = `${API_HOST}/api/v1/exams?page=${targetPage}&limit=${PAGE_SIZE}`;
+        const url = `${API_BASE_URL}/api/v1/exams?page=${targetPage}&limit=${PAGE_SIZE}`;
         const headers: Record<string, string> = {};
         if (tokens?.accessToken) {
           headers.Authorization = `Bearer ${tokens.accessToken}`;
@@ -66,11 +66,15 @@ export default function ExamsListScreen() {
 
         const res = await fetch(url, { headers });
         if (!res.ok) {
-          throw new Error('Không thể tải danh sách bài kiểm tra');
+          throw new Error("Không thể tải danh sách bài kiểm tra");
         }
 
         const json = await res.json();
-        const data: ExamsResponseData = json?.data ?? { items: [], page: 1, pages: 1 };
+        const data: ExamsResponseData = json?.data ?? {
+          items: [],
+          page: 1,
+          pages: 1,
+        };
         const items = Array.isArray(data.items) ? data.items : [];
         const currentPage = data.page || targetPage;
         const pages = data.pages || currentPage;
@@ -79,13 +83,15 @@ export default function ExamsListScreen() {
         setTotalPages(pages);
         setExams((prev) => (replace ? items : [...prev, ...items]));
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Đã có lỗi xảy ra');
+        setErrorMessage(
+          error instanceof Error ? error.message : "Đã có lỗi xảy ra",
+        );
       } finally {
         setIsLoading(false);
         setIsLoadingMore(false);
       }
     },
-    [tokens?.accessToken]
+    [tokens?.accessToken],
   );
 
   useEffect(() => {
@@ -99,34 +105,58 @@ export default function ExamsListScreen() {
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '--';
+    if (!seconds) return "--";
     const minutes = Math.floor(seconds / 60);
     return `${minutes} phút`;
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.headerBtn}
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Tất cả bài kiểm tra</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Tất cả bài kiểm tra
+        </Text>
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={() => router.push({ pathname: '/paywall', params: { source: 'exams-advanced' } } as any)}
+          onPress={() =>
+            router.push({
+              pathname: "/paywall",
+              params: { source: "exams-advanced" },
+            } as any)
+          }
         >
           <Ionicons name="diamond-outline" size={20} color={colors.tint} />
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.proBanner, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-        <Text style={[styles.proBannerTitle, { color: colors.text }]}>Thi thu nang cao (Pro)</Text>
+      <View
+        style={[
+          styles.proBanner,
+          { backgroundColor: colors.cardBg, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.proBannerTitle, { color: colors.text }]}>
+          Thi thu nang cao (Pro)
+        </Text>
         <Text style={[styles.proBannerDesc, { color: colors.secondaryText }]}>
           Free: 2 luot/ngay. Pro: khong gioi han va uu tien thong ke.
         </Text>
         <TouchableOpacity
           style={[styles.proBannerBtn, { backgroundColor: colors.tint }]}
-          onPress={() => router.push({ pathname: '/paywall', params: { source: 'exams-banner' } } as any)}
+          onPress={() =>
+            router.push({
+              pathname: "/paywall",
+              params: { source: "exams-banner" },
+            } as any)
+          }
         >
           <Text style={styles.proBannerBtnText}>Mo khoa ngay</Text>
         </TouchableOpacity>
@@ -135,7 +165,9 @@ export default function ExamsListScreen() {
       {isLoading ? (
         <View style={styles.centerState}>
           <ActivityIndicator size="small" color="#3B82F6" />
-          <Text style={[styles.stateText, { color: colors.mutedText }]}>Đang tải bài kiểm tra...</Text>
+          <Text style={[styles.stateText, { color: colors.mutedText }]}>
+            Đang tải bài kiểm tra...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -150,24 +182,40 @@ export default function ExamsListScreen() {
               style={[styles.card, { backgroundColor: colors.cardBg }]}
               onPress={() =>
                 router.push({
-                  pathname: '/exams/[id]/start',
+                  pathname: "/exams/[id]/start",
                   params: { id: item.id },
                 } as any)
               }
             >
-              <View style={[styles.thumbWrap, { backgroundColor: colors.inputBg }]}>
+              <View
+                style={[styles.thumbWrap, { backgroundColor: colors.inputBg }]}
+              >
                 {item.thumbnailUrl?.url ? (
-                  <Image source={{ uri: item.thumbnailUrl.url }} style={styles.thumb} resizeMode="cover" />
+                  <Image
+                    source={{ uri: item.thumbnailUrl.url }}
+                    style={styles.thumb}
+                    resizeMode="cover"
+                  />
                 ) : (
-                  <Ionicons name="document-text-outline" size={30} color="#3B82F6" />
+                  <Ionicons
+                    name="document-text-outline"
+                    size={30}
+                    color="#3B82F6"
+                  />
                 )}
               </View>
               <View style={styles.cardBody}>
-                <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+                <Text
+                  style={[styles.title, { color: colors.text }]}
+                  numberOfLines={2}
+                >
                   {item.title}
                 </Text>
-                <Text style={[styles.desc, { color: colors.secondaryText }]} numberOfLines={2}>
-                  {item.description || 'Bài kiểm tra trắc nghiệm'}
+                <Text
+                  style={[styles.desc, { color: colors.secondaryText }]}
+                  numberOfLines={2}
+                >
+                  {item.description || "Bài kiểm tra trắc nghiệm"}
                 </Text>
                 <View style={styles.metaRow}>
                   <Text style={[styles.metaText, { color: colors.mutedText }]}>
@@ -181,13 +229,19 @@ export default function ExamsListScreen() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <Text style={[styles.stateText, { color: colors.mutedText }]}>Chưa có bài kiểm tra nào.</Text>
+            <Text style={[styles.stateText, { color: colors.mutedText }]}>
+              Chưa có bài kiểm tra nào.
+            </Text>
           }
           ListFooterComponent={
             <View style={styles.footer}>
-              {isLoadingMore ? <ActivityIndicator size="small" color="#3B82F6" /> : null}
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color="#3B82F6" />
+              ) : null}
               {errorMessage ? (
-                <Text style={[styles.stateText, { color: '#EF4444' }]}>{errorMessage}</Text>
+                <Text style={[styles.stateText, { color: "#EF4444" }]}>
+                  {errorMessage}
+                </Text>
               ) : null}
             </View>
           }
@@ -202,23 +256,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerBtn: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   listContent: {
     paddingHorizontal: 20,
@@ -233,7 +287,7 @@ const styles = StyleSheet.create({
   },
   proBannerTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   proBannerDesc: {
     fontSize: 12,
@@ -243,15 +297,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 10,
     paddingVertical: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   proBannerBtnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   card: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 16,
     padding: 12,
     marginBottom: 12,
@@ -260,22 +314,22 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   thumb: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   cardBody: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   title: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
   },
   desc: {
@@ -283,7 +337,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   metaRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   metaText: {
@@ -291,18 +345,18 @@ const styles = StyleSheet.create({
   },
   centerState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
   },
   stateText: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
   },
   footer: {
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
 });

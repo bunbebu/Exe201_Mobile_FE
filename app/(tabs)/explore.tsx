@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/use-colors';
+import { API_BASE_URL } from '@/config/api';
 
 interface ApiImage {
   url?: string;
@@ -61,6 +63,7 @@ function CategoryCard({ icon, title, count, color, bgColor, imageUrl, onPress }:
 
 export default function ExploreScreen() {
   const colors = useColors();
+  const { tokens } = useAuth();
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [popularCourses, setPopularCourses] = useState<CourseItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,14 +76,18 @@ export default function ExploreScreen() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const apiHost = 'https://edutech-backend-y2zc.onrender.com';
-        const subjectUrl = `${apiHost}/api/v1/subjects?page=1&limit=10`;
+        const subjectUrl = `${API_BASE_URL}/api/v1/subjects?page=1&limit=10`;
         const publishedFilter = encodeURIComponent(JSON.stringify({ status: 'Published' }));
-        const popularUrl = `${apiHost}/api/v1/courses?page=1&limit=10&filters=${publishedFilter}`;
+        const popularUrl = `${API_BASE_URL}/api/v1/courses?page=1&limit=10&filters=${publishedFilter}`;
+
+        const authHeaders: any = {};
+        if (tokens?.accessToken) {
+          authHeaders['Authorization'] = `Bearer ${tokens.accessToken}`;
+        }
 
         const [subjectsRes, coursesRes] = await Promise.all([
-          fetch(subjectUrl),
-          fetch(popularUrl),
+          fetch(subjectUrl, { headers: authHeaders }),
+          fetch(popularUrl, { headers: authHeaders }),
         ]);
 
         if (!subjectsRes.ok || !coursesRes.ok) {
