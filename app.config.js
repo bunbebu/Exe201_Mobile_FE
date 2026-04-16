@@ -45,7 +45,10 @@ export default {
       typedRoutes: true,
     },
     extra: {
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8888",
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "https://rest-api-edu-tech-with-nestjs-mongo.vercel.app",
+      eas: {
+        projectId: "c531fb89-f089-4b92-bd10-3e7728336cb1",
+      },
     },
   },
 };

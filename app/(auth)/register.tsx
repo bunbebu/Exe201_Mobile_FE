@@ -29,6 +29,8 @@ export default function Register() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [nationalIdNumber, setNationalIdNumber] = useState('');
     const [educationLevel, setEducationLevel] = useState('');
+    const [registerSuccess, setRegisterSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const handleRegister = async () => {
         if (!agreeTerms) {
@@ -87,19 +89,44 @@ export default function Register() {
                 throw new Error(errMsg);
             }
 
-            Alert.alert(
-                "Thành công",
-                "Đã gửi 1 email xác nhận đến email của bạn, vui lòng kiểm tra và xác nhận",
-                [
-                    { text: "OK", onPress: () => router.push('/(auth)/login') }
-                ]
-            );
+            const responseData = await response.json();
+            const apiMessage = responseData?.message || "Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.";
+            setSuccessMessage(apiMessage);
+            setRegisterSuccess(true);
         } catch (error: any) {
             Alert.alert("Lỗi", error.message || "Có lỗi xảy ra, vui lòng thử lại.");
         } finally {
             setIsLoading(false);
         }
     };
+
+    // --- Success Screen ---
+    if (registerSuccess) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.successWrapper}>
+                    <View style={styles.successIconCircle}>
+                        <Ionicons name="mail-open-outline" size={56} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.successTitle}>Đăng ký thành công!</Text>
+                    <Text style={styles.successMessage}>{successMessage}</Text>
+                    <View style={styles.successHint}>
+                        <Ionicons name="information-circle-outline" size={18} color="#6B7280" style={{ marginRight: 6 }} />
+                        <Text style={styles.successHintText}>
+                            Kiểm tra cả hòm thư Spam nếu không thấy email.
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.backToLoginButton}
+                        onPress={() => router.replace('/(auth)/login')}
+                    >
+                        <Ionicons name="arrow-back-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={styles.backToLoginText}>Quay lại đăng nhập</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -445,6 +472,71 @@ const styles = StyleSheet.create({
     loginLink: {
         fontSize: 14,
         color: '#3B82F6',
+        fontWeight: '600',
+    },
+    // --- Success Screen Styles ---
+    successWrapper: {
+        flex: 1,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
+    },
+    successIconCircle: {
+        width: 110,
+        height: 110,
+        borderRadius: 55,
+        backgroundColor: '#EFF6FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 28,
+        borderWidth: 2,
+        borderColor: '#BFDBFE',
+    },
+    successTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#1a1a1a',
+        marginBottom: 14,
+        textAlign: 'center',
+    },
+    successMessage: {
+        fontSize: 15,
+        color: '#4B5563',
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 20,
+    },
+    successHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    successHintText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#6B7280',
+        lineHeight: 20,
+    },
+    backToLoginButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#3B82F6',
+        borderRadius: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        alignSelf: 'stretch',
+        justifyContent: 'center',
+    },
+    backToLoginText: {
+        color: '#fff',
+        fontSize: 16,
         fontWeight: '600',
     },
 });
