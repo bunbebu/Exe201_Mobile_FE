@@ -194,31 +194,7 @@ export default function Login() {
                         <View style={styles.socialContainer}>
                             <TouchableOpacity
                                 style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
-                                onPress={async () => {
-                                    try {
-                                        console.log('[LOGIN] Google login button pressed');
-                                        await loginWithGoogle();
-                                        console.log('[LOGIN] Google login completed');
-
-                                        // AuthContext đã hydrate state, kiểm tra completionToken để routing
-                                        const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
-                                        if (completionToken) {
-                                            // New user: cần điền thêm thông tin profile
-                                            console.log('[LOGIN] Google → new user, redirecting to complete-oauth');
-                                            router.replace('/(auth)/complete-oauth');
-                                        } else {
-                                            // Returning user: đã auth xong, về trang chính
-                                            console.log('[LOGIN] Google → returning user, redirecting to /');
-                                            router.replace('/');
-                                        }
-                                    } catch (error: any) {
-                                        console.error('[LOGIN] Google login error:', error);
-                                        const msg: string = error?.message ?? '';
-                                        // Bỏ qua lỗi user tự hủy
-                                        if (msg.includes('bị hủy') || msg.toLowerCase().includes('cancel')) return;
-                                        Alert.alert('Đăng nhập thất bại', msg || 'Đăng nhập với Google thất bại. Vui lòng thử lại.');
-                                    }
-                                }}
+                                onPress={() => Alert.alert('Thông báo', 'Hệ thống đăng nhập bằng Google đang được bảo trì. Vui lòng đăng nhập bằng Email.')}
                                 disabled={isLoading}
                             >
                                 <Ionicons name="logo-google" size={20} color="#1a1a1a" />
@@ -226,31 +202,7 @@ export default function Login() {
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
-                                onPress={async () => {
-                                    try {
-                                        console.log('[LOGIN] Facebook login button pressed');
-                                        await loginWithFacebook();
-                                        console.log('[LOGIN] Facebook login completed');
-
-                                        // AuthContext đã hydrate state, kiểm tra completionToken để routing
-                                        const completionToken = await AsyncStorage.getItem('@edutech/oauthCompletionToken');
-                                        if (completionToken) {
-                                            // New user: cần điền thêm thông tin profile
-                                            console.log('[LOGIN] Facebook → new user, redirecting to complete-oauth');
-                                            router.replace('/(auth)/complete-oauth');
-                                        } else {
-                                            // Returning user: đã auth xong, về trang chính
-                                            console.log('[LOGIN] Facebook → returning user, redirecting to /');
-                                            router.replace('/');
-                                        }
-                                    } catch (error: any) {
-                                        console.error('[LOGIN] Facebook login error:', error);
-                                        const msg: string = error?.message ?? '';
-                                        // Bỏ qua lỗi user tự hủy
-                                        if (msg.includes('bị hủy') || msg.toLowerCase().includes('cancel')) return;
-                                        Alert.alert('Đăng nhập thất bại', msg || 'Đăng nhập với Facebook thất bại. Vui lòng thử lại.');
-                                    }
-                                }}
+                                onPress={() => Alert.alert('Thông báo', 'Hệ thống đăng nhập bằng Facebook đang được bảo trì. Vui lòng đăng nhập bằng Email.')}
                                 disabled={isLoading}
                             >
                                 <Ionicons name="logo-facebook" size={20} color="#1877F2" />
