@@ -110,7 +110,7 @@ export default function HomeScreen() {
 
         if (res.ok) {
           const data: any = await res.json();
-          
+
           // Extract header data from response
           // Assuming API returns: { user: { fullName }, studentProfile: { currentStreak }, dailyProgress: { percent } }
           setHeaderData({
@@ -299,11 +299,11 @@ export default function HomeScreen() {
   // Tìm lesson tiếp theo để học (isNext hoặc lesson đầu tiên chưa completed và không locked)
   const getNextLesson = (): Lesson | null => {
     if (!dashboardData || !dashboardData.lessons.length) return null;
-    
+
     // Tìm lesson có isNext = true
     const nextLesson = dashboardData.lessons.find((l) => l.isNext);
     if (nextLesson) return nextLesson;
-    
+
     // Nếu không có isNext, tìm lesson đầu tiên chưa completed và không locked
     const firstAvailable = dashboardData.lessons.find((l) => !l.isCompleted && !l.isLocked);
     return firstAvailable || null;
@@ -336,7 +336,7 @@ export default function HomeScreen() {
         <View style={[styles.header, { backgroundColor: colors.headerBg }]}>
           <View style={styles.headerLeft}>
             <Image
-              source={{ uri: user?.avatarUrl || 'https://kenh14cdn.com/203336854389633024/2021/1/3/5eaa8adf32978-1589277602636643044840-158953676924396578872-16096680352171545831444.jpeg' }}
+              source={{ uri: user?.avatarUrl || 'https://static.vecteezy.com/system/resources/thumbnails/001/840/618/small/picture-profile-icon-male-icon-human-or-people-sign-and-symbol-free-vector.jpg' }}
               style={styles.avatar}
             />
             <View style={styles.headerTextContainer}>
@@ -529,8 +529,8 @@ export default function HomeScreen() {
                         {lesson.isCompleted
                           ? 'Đã hoàn thành'
                           : lesson.isLocked
-                          ? 'Đã khóa'
-                          : 'Có thể học'}
+                            ? 'Đã khóa'
+                            : 'Có thể học'}
                       </Text>
                     </View>
                   </View>
@@ -543,8 +543,8 @@ export default function HomeScreen() {
                         backgroundColor: lesson.isCompleted
                           ? '#10B981'
                           : lesson.isNext
-                          ? '#F59E0B'
-                          : '#3B82F6',
+                            ? '#F59E0B'
+                            : '#3B82F6',
                       },
                     ]}
                     onPress={() =>
@@ -624,332 +624,332 @@ function createHomeStyles(screenWidth: number) {
   const edgePad = isTablet ? 32 : isWeb ? Math.min(screenWidth * 0.05, 40) : 20;
 
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    maxWidth: isWeb ? 1200 : '100%',
-    alignSelf: isWeb ? 'center' : 'stretch',
-    width: isWeb ? '100%' : screenWidth,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: edgePad,
-    paddingVertical: isTablet ? 20 : 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isTablet ? 16 : 12,
-    flex: 1,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  avatar: {
-    width: isTablet ? 52 : 44,
-    height: isTablet ? 52 : 44,
-    borderRadius: isTablet ? 26 : 22,
-  },
-  greeting: {
-    fontSize: isTablet ? 16 : 14,
-  },
-  userName: {
-    fontSize: isTablet ? 20 : 18,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  streakContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  streakText: {
-    fontSize: isTablet ? 13 : 11,
-    color: '#F59E0B',
-    fontWeight: '600',
-  },
-  dailyProgressContainer: {
-    marginHorizontal: edgePad,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: isTablet ? 16 : 12,
-    borderRadius: 12,
-  },
-  dailyProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dailyProgressLabel: {
-    fontSize: isTablet ? 14 : 12,
-    fontWeight: '600',
-  },
-  dailyProgressPercent: {
-    fontSize: isTablet ? 16 : 14,
-    fontWeight: '700',
-    color: '#3B82F6',
-  },
-  dailyProgressBarBg: {
-    height: isTablet ? 10 : 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  dailyProgressBar: {
-    height: '100%',
-    backgroundColor: '#3B82F6',
-    borderRadius: 4,
-  },
-  notificationBtn: {
-    width: isTablet ? 52 : 44,
-    height: isTablet ? 52 : 44,
-    borderRadius: isTablet ? 26 : 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressCard: {
-    margin: edgePad,
-    padding: isTablet ? 28 : isWeb ? 24 : 20,
-    backgroundColor: '#3B82F6',
-    borderRadius: isTablet ? 24 : 20,
-    maxWidth: isWeb ? 800 : '100%',
-    alignSelf: isWeb ? 'center' : 'stretch',
-  },
-  progressLabel: {
-    fontSize: isTablet ? 14 : 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 4,
-  },
-  progressTitle: {
-    fontSize: isTablet ? 26 : isWeb ? 24 : 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: isTablet ? 20 : 16,
-  },
-  progressInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  progressBarContainer: {
-    flex: 1,
-    minWidth: 0,
-  },
-  progressPercent: {
-    fontSize: isTablet ? 14 : 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 8,
-  },
-  progressBarBg: {
-    height: isTablet ? 10 : 8,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 4,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 4,
-  },
-  lessonCount: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: isTablet ? 16 : 12,
-    paddingVertical: isTablet ? 8 : 6,
-    borderRadius: 8,
-    flexShrink: 0,
-  },
-  lessonCountText: {
-    fontSize: isTablet ? 16 : 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  startLearningButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: isTablet ? 16 : 14,
-    paddingHorizontal: isTablet ? 24 : 20,
-    borderRadius: isTablet ? 16 : 12,
-    marginTop: isTablet ? 20 : 16,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  startLearningButtonText: {
-    fontSize: isTablet ? 18 : 16,
-    fontWeight: '700',
-    color: '#3B82F6',
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    alignSelf: 'stretch',
-    paddingHorizontal: edgePad,
-    marginBottom: isTablet ? 32 : 24,
-    gap: isTablet ? 16 : isWeb ? 12 : 8,
-    flexWrap: isCompactWeb ? 'wrap' : 'nowrap',
-  },
-  quickAction: {
-    ...(isCompactWeb
-      ? { width: '48%', maxWidth: '48%', flexGrow: 0, flexShrink: 0 }
-      : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
-    alignItems: 'center',
-    marginBottom: isCompactWeb ? 12 : 0,
-  },
-  quickActionIcon: {
-    width: isTablet ? 64 : isLargeWeb ? 64 : 56,
-    height: isTablet ? 64 : isLargeWeb ? 64 : 56,
-    borderRadius: isTablet ? 20 : 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: isTablet ? 12 : 8,
-  },
-  quickActionLabel: {
-    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
-    fontWeight: '500',
-  },
-  section: {
-    paddingHorizontal: edgePad,
-    marginBottom: isTablet ? 32 : 24,
-    maxWidth: isWeb ? 800 : '100%',
-    alignSelf: isWeb ? 'center' : 'stretch',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: isTablet ? 20 : 16,
-  },
-  sectionTitle: {
-    fontSize: isTablet ? 22 : isLargeWeb ? 20 : 18,
-    fontWeight: '700',
-  },
-  seeAllText: {
-    fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
-    color: '#3B82F6',
-    fontWeight: '500',
-  },
-  lessonCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
-    borderRadius: isTablet ? 20 : 16,
-    marginBottom: isTablet ? 16 : 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  lessonIconContainer: {
-    width: isTablet ? 56 : isLargeWeb ? 56 : 48,
-    height: isTablet ? 56 : isLargeWeb ? 56 : 48,
-    borderRadius: isTablet ? 16 : 12,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: isTablet ? 16 : 12,
-    flexShrink: 0,
-  },
-  lessonInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  lessonChapter: {
-    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  lessonTitle: {
-    fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  lessonSubtitle: {
-    fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
-    marginBottom: 6,
-    lineHeight: isTablet ? 22 : 20,
-  },
-  lessonMeta: {
-    flexDirection: 'row',
-    gap: isTablet ? 16 : 12,
-    flexWrap: 'wrap',
-  },
-  lessonMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  lessonMetaText: {
-    fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
-  },
-  playButton: {
-    width: isTablet ? 48 : isLargeWeb ? 48 : 40,
-    height: isTablet ? 48 : isLargeWeb ? 48 : 40,
-    borderRadius: isTablet ? 24 : 20,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  suggestionsContainer: {
-    flexDirection: isCompactWeb ? 'column' : 'row',
-    width: '100%',
-    alignSelf: 'stretch',
-    gap: isTablet ? 16 : 12,
-    marginTop: 16,
-  },
-  suggestionCard: {
-    ...(isCompactWeb
-      ? { width: '100%', flexGrow: 0, flexShrink: 0 }
-      : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
-    padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
-    borderRadius: isTablet ? 20 : 16,
-  },
-  suggestionIconContainer: {
-    width: isTablet ? 48 : isLargeWeb ? 48 : 40,
-    height: isTablet ? 48 : isLargeWeb ? 48 : 40,
-    borderRadius: isTablet ? 16 : 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: isTablet ? 16 : 12,
-  },
-  suggestionTitle: {
-    fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  suggestionDescription: {
-    fontSize: isTablet ? 15 : isLargeWeb ? 15 : 13,
-    lineHeight: isTablet ? 22 : 18,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: isTablet ? 60 : 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: isTablet ? 16 : 14,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: isTablet ? 60 : 40,
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: isTablet ? 16 : 14,
-  },
+    container: {
+      flex: 1,
+      maxWidth: isWeb ? 1200 : '100%',
+      alignSelf: isWeb ? 'center' : 'stretch',
+      width: isWeb ? '100%' : screenWidth,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: edgePad,
+      paddingVertical: isTablet ? 20 : 16,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: isTablet ? 16 : 12,
+      flex: 1,
+    },
+    headerTextContainer: {
+      flex: 1,
+    },
+    avatar: {
+      width: isTablet ? 52 : 44,
+      height: isTablet ? 52 : 44,
+      borderRadius: isTablet ? 26 : 22,
+    },
+    greeting: {
+      fontSize: isTablet ? 16 : 14,
+    },
+    userName: {
+      fontSize: isTablet ? 20 : 18,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    streakContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    streakText: {
+      fontSize: isTablet ? 13 : 11,
+      color: '#F59E0B',
+      fontWeight: '600',
+    },
+    dailyProgressContainer: {
+      marginHorizontal: edgePad,
+      marginTop: 12,
+      marginBottom: 8,
+      padding: isTablet ? 16 : 12,
+      borderRadius: 12,
+    },
+    dailyProgressHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    dailyProgressLabel: {
+      fontSize: isTablet ? 14 : 12,
+      fontWeight: '600',
+    },
+    dailyProgressPercent: {
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: '700',
+      color: '#3B82F6',
+    },
+    dailyProgressBarBg: {
+      height: isTablet ? 10 : 8,
+      backgroundColor: '#E5E7EB',
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    dailyProgressBar: {
+      height: '100%',
+      backgroundColor: '#3B82F6',
+      borderRadius: 4,
+    },
+    notificationBtn: {
+      width: isTablet ? 52 : 44,
+      height: isTablet ? 52 : 44,
+      borderRadius: isTablet ? 26 : 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    progressCard: {
+      margin: edgePad,
+      padding: isTablet ? 28 : isWeb ? 24 : 20,
+      backgroundColor: '#3B82F6',
+      borderRadius: isTablet ? 24 : 20,
+      maxWidth: isWeb ? 800 : '100%',
+      alignSelf: isWeb ? 'center' : 'stretch',
+    },
+    progressLabel: {
+      fontSize: isTablet ? 14 : 12,
+      color: 'rgba(255,255,255,0.8)',
+      marginBottom: 4,
+    },
+    progressTitle: {
+      fontSize: isTablet ? 26 : isWeb ? 24 : 22,
+      fontWeight: '700',
+      color: '#fff',
+      marginBottom: isTablet ? 20 : 16,
+    },
+    progressInfo: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      gap: 16,
+    },
+    progressBarContainer: {
+      flex: 1,
+      minWidth: 0,
+    },
+    progressPercent: {
+      fontSize: isTablet ? 14 : 12,
+      color: 'rgba(255,255,255,0.8)',
+      marginBottom: 8,
+    },
+    progressBarBg: {
+      height: isTablet ? 10 : 8,
+      backgroundColor: 'rgba(255,255,255,0.3)',
+      borderRadius: 4,
+    },
+    progressBar: {
+      height: '100%',
+      backgroundColor: '#fff',
+      borderRadius: 4,
+    },
+    lessonCount: {
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      paddingHorizontal: isTablet ? 16 : 12,
+      paddingVertical: isTablet ? 8 : 6,
+      borderRadius: 8,
+      flexShrink: 0,
+    },
+    lessonCountText: {
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    startLearningButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#fff',
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 24 : 20,
+      borderRadius: isTablet ? 16 : 12,
+      marginTop: isTablet ? 20 : 16,
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    startLearningButtonText: {
+      fontSize: isTablet ? 18 : 16,
+      fontWeight: '700',
+      color: '#3B82F6',
+    },
+    quickActionsContainer: {
+      flexDirection: 'row',
+      width: '100%',
+      alignSelf: 'stretch',
+      paddingHorizontal: edgePad,
+      marginBottom: isTablet ? 32 : 24,
+      gap: isTablet ? 16 : isWeb ? 12 : 8,
+      flexWrap: isCompactWeb ? 'wrap' : 'nowrap',
+    },
+    quickAction: {
+      ...(isCompactWeb
+        ? { width: '48%', maxWidth: '48%', flexGrow: 0, flexShrink: 0 }
+        : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
+      alignItems: 'center',
+      marginBottom: isCompactWeb ? 12 : 0,
+    },
+    quickActionIcon: {
+      width: isTablet ? 64 : isLargeWeb ? 64 : 56,
+      height: isTablet ? 64 : isLargeWeb ? 64 : 56,
+      borderRadius: isTablet ? 20 : 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: isTablet ? 12 : 8,
+    },
+    quickActionLabel: {
+      fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
+      fontWeight: '500',
+    },
+    section: {
+      paddingHorizontal: edgePad,
+      marginBottom: isTablet ? 32 : 24,
+      maxWidth: isWeb ? 800 : '100%',
+      alignSelf: isWeb ? 'center' : 'stretch',
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: isTablet ? 20 : 16,
+    },
+    sectionTitle: {
+      fontSize: isTablet ? 22 : isLargeWeb ? 20 : 18,
+      fontWeight: '700',
+    },
+    seeAllText: {
+      fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
+      color: '#3B82F6',
+      fontWeight: '500',
+    },
+    lessonCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
+      borderRadius: isTablet ? 20 : 16,
+      marginBottom: isTablet ? 16 : 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    lessonIconContainer: {
+      width: isTablet ? 56 : isLargeWeb ? 56 : 48,
+      height: isTablet ? 56 : isLargeWeb ? 56 : 48,
+      borderRadius: isTablet ? 16 : 12,
+      backgroundColor: '#D1FAE5',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: isTablet ? 16 : 12,
+      flexShrink: 0,
+    },
+    lessonInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    lessonChapter: {
+      fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
+      marginBottom: 4,
+      fontWeight: '500',
+    },
+    lessonTitle: {
+      fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
+      fontWeight: '600',
+      marginBottom: 2,
+    },
+    lessonSubtitle: {
+      fontSize: isTablet ? 16 : isLargeWeb ? 16 : 14,
+      marginBottom: 6,
+      lineHeight: isTablet ? 22 : 20,
+    },
+    lessonMeta: {
+      flexDirection: 'row',
+      gap: isTablet ? 16 : 12,
+      flexWrap: 'wrap',
+    },
+    lessonMetaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    lessonMetaText: {
+      fontSize: isTablet ? 14 : isLargeWeb ? 14 : 12,
+    },
+    playButton: {
+      width: isTablet ? 48 : isLargeWeb ? 48 : 40,
+      height: isTablet ? 48 : isLargeWeb ? 48 : 40,
+      borderRadius: isTablet ? 24 : 20,
+      backgroundColor: '#3B82F6',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    suggestionsContainer: {
+      flexDirection: isCompactWeb ? 'column' : 'row',
+      width: '100%',
+      alignSelf: 'stretch',
+      gap: isTablet ? 16 : 12,
+      marginTop: 16,
+    },
+    suggestionCard: {
+      ...(isCompactWeb
+        ? { width: '100%', flexGrow: 0, flexShrink: 0 }
+        : { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }),
+      padding: isTablet ? 20 : isLargeWeb ? 20 : 16,
+      borderRadius: isTablet ? 20 : 16,
+    },
+    suggestionIconContainer: {
+      width: isTablet ? 48 : isLargeWeb ? 48 : 40,
+      height: isTablet ? 48 : isLargeWeb ? 48 : 40,
+      borderRadius: isTablet ? 16 : 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: isTablet ? 16 : 12,
+    },
+    suggestionTitle: {
+      fontSize: isTablet ? 18 : isLargeWeb ? 18 : 16,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    suggestionDescription: {
+      fontSize: isTablet ? 15 : isLargeWeb ? 15 : 13,
+      lineHeight: isTablet ? 22 : 18,
+    },
+    loadingContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: isTablet ? 60 : 40,
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: isTablet ? 16 : 14,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: isTablet ? 60 : 40,
+    },
+    emptyText: {
+      marginTop: 12,
+      fontSize: isTablet ? 16 : 14,
+    },
   });
 }
 

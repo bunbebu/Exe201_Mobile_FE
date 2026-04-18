@@ -337,13 +337,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       ]);
       console.log("[AUTH] Tokens and user saved to AsyncStorage");
 
-      // Check onboarding status from storage
-      const onboardingCompleted = await AsyncStorage.getItem(
+      // Fetch student profile to get the truth about onboardingCompleted
+      let onboardingIsCompleted = false;
+      try {
+        console.log("[AUTH] Fetching student profile to check onboarding...");
+        const profileRes = await fetch(`${API_BASE_URL}/api/v1/student-profiles/me`, {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+          },
+        });
+        if (profileRes.ok) {
+          const profileRaw = await profileRes.json();
+          const profileData = profileRaw?.data ?? profileRaw;
+          onboardingIsCompleted = profileData?.onboardingCompleted === true;
+          console.log("[AUTH] Fetched onboardingCompleted from API:", onboardingIsCompleted);
+        }
+      } catch (err) {
+        console.error("[AUTH] Failed to fetch student profile", err);
+      }
+
+      await AsyncStorage.setItem(
         STORAGE_KEYS.ONBOARDING_COMPLETED,
-      );
-      console.log(
-        "[AUTH] Onboarding completed from storage:",
-        onboardingCompleted,
+        onboardingIsCompleted ? "true" : "false"
       );
 
       setState((prev) => {
@@ -353,7 +368,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           tokens,
           isAuthenticated: true,
           isLoading: false,
-          onboardingCompleted: onboardingCompleted === "true",
+          onboardingCompleted: onboardingIsCompleted,
         };
         console.log("[AUTH] State updated:", {
           isAuthenticated: newState.isAuthenticated,

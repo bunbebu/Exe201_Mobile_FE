@@ -181,7 +181,7 @@ export default function ProfileScreen() {
                         source={{
                             uri:
                                 avatarUrl ||
-                                'https://kenh14cdn.com/203336854389633024/2021/1/3/5eaa8adf32978-1589277602636643044840-158953676924396578872-16096680352171545831444.jpeg',
+                                'https://static.vecteezy.com/system/resources/thumbnails/001/840/618/small/picture-profile-icon-male-icon-human-or-people-sign-and-symbol-free-vector.jpg',
                         }}
                         style={styles.avatar}
                     />

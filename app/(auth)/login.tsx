@@ -34,8 +34,12 @@ export default function Login() {
         });
         
         if (isAuthenticated && !isLoading) {
-            console.log('[LOGIN] Ready to redirect to index');
-            router.replace('/');
+            console.log('[LOGIN] Ready to redirect');
+            if (onboardingCompleted) {
+                router.replace('/');
+            } else {
+                router.replace('/(auth)/select-grade');
+            }
         }
     }, [isAuthenticated, onboardingCompleted, isLoading]);
 
@@ -51,25 +55,8 @@ export default function Login() {
             await loginWithEmail({ email, password });
             console.log('[LOGIN] loginWithEmail completed successfully');
             
-            // Wait a bit for state to update
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Check onboarding status và redirect
-            const onboardingStatus = await AsyncStorage.getItem('@edutech/onboardingCompleted');
-            console.log('[LOGIN] After loginWithEmail - Onboarding status from storage:', onboardingStatus);
-            console.log('[LOGIN] After loginWithEmail - Current auth state from hook:', {
-                isAuthenticated,
-                onboardingCompleted: onboardingCompleted,
-                isLoading,
-            });
-            
-            // Check onboarding status và redirect
-            const onboardingCompletedFromStorage = await AsyncStorage.getItem('@edutech/onboardingCompleted');
-            console.log('[LOGIN] Onboarding status from storage:', onboardingCompletedFromStorage);
-            
-            // Redirect về index sau khi login thành công
-            console.log('[LOGIN] Redirecting to / (from handleLogin)');
-            router.replace('/');
+            // Redirect is handled by the useEffect above
+            // No need to call router.replace() here manually to prevent race conditions.
         } catch (error: any) {
             console.error('[LOGIN] Error in handleLogin:', error);
             Alert.alert(
